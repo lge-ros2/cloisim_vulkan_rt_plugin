@@ -4,6 +4,7 @@
 
 #include "cloisim_vulkan_rt/api.h"
 #include "unity_vulkan_bridge.h"
+#include "vulkan_interceptor.h"
 
 static IUnityGraphics* g_graphics = nullptr;
 
@@ -40,6 +41,7 @@ UnityPluginLoad(IUnityInterfaces* interfaces)
 {
     g_graphics = interfaces->Get<IUnityGraphics>();
     UnityVulkanBridge::Instance().Load(interfaces);
+    UnityVulkanBridge::Instance().InstallInitializationInterceptor();
 
     if (g_graphics != nullptr)
     {
@@ -66,6 +68,11 @@ uint32_t CLOISimRt_GetAbiVersion()
 int32_t CLOISimRt_GetCapabilities(CloiSimRtCapabilities* capabilities)
 {
     return UnityVulkanBridge::Instance().GetCapabilities(capabilities) ? 0 : -1;
+}
+
+int32_t CLOISimRt_IsNativeBackendAvailable()
+{
+    return VulkanInterceptor::NativeBackendAvailable() ? 1 : 0;
 }
 
 void* CLOISimRt_GetRenderEventFunc()

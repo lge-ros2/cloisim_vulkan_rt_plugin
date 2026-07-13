@@ -11,6 +11,7 @@ find_package(Vulkan REQUIRED)
 add_library(cloisim_vulkan_rt SHARED
     src/plugin_entry.cpp
     src/unity_vulkan_bridge.cpp
+    src/vulkan_interceptor.cpp
 )
 
 target_include_directories(cloisim_vulkan_rt PRIVATE
@@ -19,6 +20,12 @@ target_include_directories(cloisim_vulkan_rt PRIVATE
     third_party/unity
     ${Vulkan_INCLUDE_DIRS}
 )
+
+foreach(header IUnityInterface.h IUnityGraphics.h IUnityGraphicsVulkan.h)
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/unity/${header}")
+        message(FATAL_ERROR "Missing Unity PluginAPI header: Native~/third_party/unity/${header}")
+    endif()
+endforeach()
 
 target_link_libraries(cloisim_vulkan_rt PRIVATE Vulkan::Vulkan dl pthread)
 

@@ -18,6 +18,8 @@ namespace CLOiSim.VulkanRT
             public uint apiVersion;
             public uint vendorId;
             public uint deviceId;
+            public uint pluginLoaded;
+            public uint vulkanDeviceReady;
             public uint accelerationStructure;
             public uint rayTracingPipeline;
             public uint rayQuery;
@@ -35,6 +37,9 @@ namespace CLOiSim.VulkanRT
 
         [DllImport(LibraryName)]
         private static extern IntPtr CLOISimRt_GetRenderEventFunc();
+
+        [DllImport(LibraryName)]
+        private static extern int CLOISimRt_IsNativeBackendAvailable();
 
         public static bool IsVulkan =>
             SystemInfo.graphicsDeviceType == GraphicsDeviceType.Vulkan;
@@ -58,6 +63,17 @@ namespace CLOiSim.VulkanRT
             catch (EntryPointNotFoundException)
             {
                 return false;
+            }
+        }
+
+        public static bool IsNativeBackendAvailable
+        {
+            get
+            {
+                if (!IsVulkan) return false;
+                try { return CLOISimRt_GetAbiVersion() == ExpectedAbiVersion && CLOISimRt_IsNativeBackendAvailable() == 1; }
+                catch (DllNotFoundException) { return false; }
+                catch (EntryPointNotFoundException) { return false; }
             }
         }
 
