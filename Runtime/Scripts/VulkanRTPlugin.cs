@@ -1,0 +1,69 @@
+using System;
+using System.Runtime.InteropServices;
+using UnityEngine;
+using UnityEngine.Rendering;
+
+namespace CLOiSim.VulkanRT
+{
+    public static class VulkanRTPlugin
+    {
+        private const string LibraryName = "cloisim_vulkan_rt";
+
+        public const uint ExpectedAbiVersion = 1;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Capabilities
+        {
+            public uint abiVersion;
+            public uint apiVersion;
+            public uint vendorId;
+            public uint deviceId;
+            public uint accelerationStructure;
+            public uint rayTracingPipeline;
+            public uint rayQuery;
+            public uint bufferDeviceAddress;
+            public uint maxRecursionDepth;
+            public uint shaderGroupHandleSize;
+            public uint shaderGroupBaseAlignment;
+        }
+
+        [DllImport(LibraryName)]
+        private static extern uint CLOISimRt_GetAbiVersion();
+
+        [DllImport(LibraryName)]
+        private static extern int CLOISimRt_GetCapabilities(out Capabilities capabilities);
+
+        [DllImport(LibraryName)]
+        private static extern IntPtr CLOISimRt_GetRenderEventFunc();
+
+        public static bool IsVulkan =>
+            SystemInfo.graphicsDeviceType == GraphicsDeviceType.Vulkan;
+
+        public static bool TryGetCapabilities(out Capabilities capabilities)
+        {
+            capabilities = default;
+
+            if (!IsVulkan)
+                return false;
+
+            try
+            {
+                return CLOISimRt_GetAbiVersion() == ExpectedAbiVersion &&
+                       CLOISimRt_GetCapabilities(out capabilities) == 0;
+            }
+            catch (DllNotFoundException)
+            {
+                return false;
+            }
+            catch (EntryPointNotFoundException)
+            {
+                return false;
+            }
+        }
+
+        public static IntPtr GetRenderEventFunc()
+        {
+            return CLOISimRt_GetRenderEventFunc();
+        }
+    }
+}

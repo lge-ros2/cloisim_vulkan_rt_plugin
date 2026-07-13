@@ -1,0 +1,92 @@
+# Unity generated files
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+UserSettings/
+MemoryCaptures/
+Recordings/
+
+# Unity package artifacts
+*.unitypackage
+*.apk
+*.aab
+*.app
+*.ipa
+
+# IDE and editor files
+.vscode/
+.idea/
+.vs/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Native CMake build files
+Native~/build/
+Native~/build-*/
+Native~/out/
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+cmake_install.cmake
+compile_commands.json
+Makefile
+
+# Native binaries and debug symbols
+*.o
+*.obj
+*.a
+*.so
+*.so.*
+*.dll
+*.dylib
+*.exe
+*.debug
+*.so.debug
+
+# Keep the packaged runtime native library when intentionally committed
+!Runtime/Plugins/Linux/x86_64/*.so
+
+# Generated Vulkan shaders
+*.spv
+*.spv.tmp
+*.d
+
+# Vulkan diagnostics and caches
+vulkan_pso_cache.bin
+pipeline_cache.bin
+*.nv-gpudmp
+*.nsys-rep
+*.qdrep
+
+# Test and coverage output
+Testing/
+coverage/
+*.gcda
+*.gcno
+*.gcov
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local environment and temporary files
+.env
+.env.*
+!.env.example
+*.local
+*.tmp
+*.swp
+*~

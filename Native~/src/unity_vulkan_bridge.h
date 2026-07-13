@@ -1,0 +1,19 @@
+#pragma once
+
+#include "IUnityGraphicsVulkan.h"
+
+class UnityVulkanBridge
+{
+public:
+    static UnityVulkanBridge& Instance();
+
+    void Load(IUnityInterfaces* interfaces);
+    void OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType);
+    bool GetCapabilities(CloiSimRtCapabilities* capabilities) const;
+    IUnityGraphicsVulkanV2* Vulkan() const;
+
+private:
+    IUnityGraphicsVulkanV2* vulkan_ = nullptr;
+    UnityVulkanInstance instance_{};
+    bool initialized_ = false;
+};

@@ -1,0 +1,17 @@
+{
+  "name": "com.lge.cloisim.vulkan-rt",
+  "version": "0.1.0",
+  "displayName": "CLOiSim Vulkan Ray Tracing",
+  "description": "Native Vulkan ray tracing integration for Unity-based robot simulation.",
+  "unity": "6000.5",
+  "author": {
+    "name": "LGE Robotics Platform"
+  },
+  "samples": [
+    {
+      "displayName": "Minimal Depth Sensor",
+      "description": "Minimal Vulkan ray tracing depth output example.",
+      "path": "Samples~/MinimalDepthSensor"
+    }
+  ]
+}
