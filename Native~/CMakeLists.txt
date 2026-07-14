@@ -15,6 +15,8 @@ add_library(cloisim_vulkan_rt SHARED
     src/vulkan_dispatch.cpp
     src/vulkan_memory.cpp
     src/gpu_buffer.cpp
+    src/acceleration_structure.cpp
+    src/rt_scene_builder.cpp
 )
 
 target_include_directories(cloisim_vulkan_rt PRIVATE
