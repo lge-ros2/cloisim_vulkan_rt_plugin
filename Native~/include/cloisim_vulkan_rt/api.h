@@ -34,3 +34,21 @@ CLOISIM_RT_EXPORT void* CLOISimRt_GetRenderEventFunc();
 CLOISIM_RT_EXPORT int32_t CLOISimRt_SetShaderDirectory(const char* path);
 CLOISIM_RT_EXPORT int32_t CLOISimRt_InitializeDepthPipeline();
 CLOISIM_RT_EXPORT int32_t CLOISimRt_IsDepthPipelineReady();
+
+struct CloiSimRtDepthOutput
+{
+    void* nativeTexture;
+    uint32_t width;
+    uint32_t height;
+    uint32_t reserved;
+};
+
+CLOISIM_RT_EXPORT int32_t
+CLOISimRt_SetDepthOutput(
+    const CloiSimRtDepthOutput* output);
+
+CLOISIM_RT_EXPORT int32_t
+CLOISimRt_IsSmokeSceneReady();
+
+CLOISIM_RT_EXPORT int32_t
+CLOISimRt_GetLastTraceStatus();

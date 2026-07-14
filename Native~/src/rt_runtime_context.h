@@ -1,3 +1,8 @@
+#include "smoke_scene.h"
+#include "unity_output_texture.h"
+#include "depth_trace_recorder.h"
+#include "IUnityGraphics.h"
+#include "IUnityGraphicsVulkan.h"
 #pragma once
 
 #include "depth_pipeline_resources.h"
@@ -28,6 +33,20 @@ public:
 
     void CollectDeferred();
 
+    bool SetDepthOutput(
+        void* nativeTexture,
+        uint32_t width,
+        uint32_t height);
+
+    bool RecordSmokeBuild(
+        VkCommandBuffer commandBuffer);
+
+    bool RecordDepthTrace(
+        IUnityGraphicsVulkanV2* vulkan);
+
+    bool IsSmokeSceneReady() const;
+    int LastTraceStatus() const;
+
     bool SetShaderDirectory(const char* path);
     bool InitializeDepthPipeline();
     bool IsDepthPipelineReady() const;
@@ -47,6 +66,14 @@ private:
     VkDevice device_ = VK_NULL_HANDLE;
     VulkanDispatch* dispatch_ = nullptr;
     RtSceneBuilder sceneBuilder_;
+    SmokeScene smokeScene_;
+    UnityOutputTexture outputTexture_;
+    DepthTraceRecorder traceRecorder_;
+
+    void* nativeOutputTexture_ = nullptr;
+    uint32_t outputWidth_ = 0;
+    uint32_t outputHeight_ = 0;
+    int lastTraceStatus_ = 0;
     DepthPipelineResources depthPipeline_;
     std::filesystem::path shaderDirectory_;
     DeferredReleaseQueue deferredReleases_;
