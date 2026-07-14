@@ -30,3 +30,7 @@ CLOISIM_RT_EXPORT uint32_t CLOISimRt_GetAbiVersion();
 CLOISIM_RT_EXPORT int32_t CLOISimRt_GetCapabilities(CloiSimRtCapabilities* capabilities);
 CLOISIM_RT_EXPORT int32_t CLOISimRt_IsNativeBackendAvailable();
 CLOISIM_RT_EXPORT void* CLOISimRt_GetRenderEventFunc();
+
+CLOISIM_RT_EXPORT int32_t CLOISimRt_SetShaderDirectory(const char* path);
+CLOISIM_RT_EXPORT int32_t CLOISimRt_InitializeDepthPipeline();
+CLOISIM_RT_EXPORT int32_t CLOISimRt_IsDepthPipelineReady();

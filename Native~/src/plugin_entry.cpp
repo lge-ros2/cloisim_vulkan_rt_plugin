@@ -88,3 +88,24 @@ void* CLOISimRt_GetRenderEventFunc()
 {
     return reinterpret_cast<void*>(OnRenderEvent);
 }
+
+int32_t CLOISimRt_SetShaderDirectory(const char* path)
+{
+    return RtRuntimeContext::Instance().SetShaderDirectory(path)
+        ? 0
+        : -1;
+}
+
+int32_t CLOISimRt_InitializeDepthPipeline()
+{
+    return RtRuntimeContext::Instance().InitializeDepthPipeline()
+        ? 0
+        : -1;
+}
+
+int32_t CLOISimRt_IsDepthPipelineReady()
+{
+    return RtRuntimeContext::Instance().IsDepthPipelineReady()
+        ? 1
+        : 0;
+}

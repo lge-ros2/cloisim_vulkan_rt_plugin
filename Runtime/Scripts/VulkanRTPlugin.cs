@@ -42,6 +42,64 @@ namespace CLOiSim.VulkanRT
         [DllImport(LibraryName)]
         private static extern int CLOISimRt_IsNativeBackendAvailable();
 
+        [DllImport(
+            LibraryName,
+            CharSet = CharSet.Ansi)]
+        private static extern int CLOISimRt_SetShaderDirectory(
+            string path);
+
+        [DllImport(LibraryName)]
+        private static extern int CLOISimRt_InitializeDepthPipeline();
+
+        [DllImport(LibraryName)]
+        private static extern int CLOISimRt_IsDepthPipelineReady();
+
+        public static bool InitializeDepthPipeline(
+            string shaderDirectory)
+        {
+            if (!IsVulkan ||
+                string.IsNullOrEmpty(shaderDirectory))
+            {
+                return false;
+            }
+
+            try
+            {
+                return
+                    CLOISimRt_SetShaderDirectory(
+                        shaderDirectory) == 0 &&
+                    CLOISimRt_InitializeDepthPipeline() == 0 &&
+                    CLOISimRt_IsDepthPipelineReady() == 1;
+            }
+            catch (DllNotFoundException)
+            {
+                return false;
+            }
+            catch (EntryPointNotFoundException)
+            {
+                return false;
+            }
+        }
+
+        public static bool IsDepthPipelineReady
+        {
+            get
+            {
+                try
+                {
+                    return CLOISimRt_IsDepthPipelineReady() == 1;
+                }
+                catch (DllNotFoundException)
+                {
+                    return false;
+                }
+                catch (EntryPointNotFoundException)
+                {
+                    return false;
+                }
+            }
+        }
+
         public static bool IsVulkan =>
             SystemInfo.graphicsDeviceType == GraphicsDeviceType.Vulkan;
 

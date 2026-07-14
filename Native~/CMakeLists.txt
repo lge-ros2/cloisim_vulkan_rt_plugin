@@ -23,6 +23,7 @@ add_library(cloisim_vulkan_rt SHARED
     src/rt_pipeline.cpp
     src/shader_binding_table.cpp
     src/shader_loader.cpp
+    src/depth_pipeline_resources.cpp
 )
 
 target_include_directories(cloisim_vulkan_rt PRIVATE

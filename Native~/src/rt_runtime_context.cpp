@@ -38,6 +38,7 @@ bool RtRuntimeContext::Initialize(
 
 void RtRuntimeContext::Shutdown()
 {
+    depthPipeline_.Shutdown();
     // Graphics device shutdown is the final ownership boundary. Unity has
     // stopped using the device before this callback is issued.
     deferredReleases_.ClearUnsafe();
@@ -67,4 +68,36 @@ void RtRuntimeContext::CollectDeferred()
         return;
 
     deferredReleases_.Collect(safeFrameNumber_);
+}
+
+bool RtRuntimeContext::SetShaderDirectory(const char* path)
+{
+    if (path == nullptr || path[0] == '\0')
+        return false;
+
+    shaderDirectory_ = std::filesystem::path(path);
+    return true;
+}
+
+bool RtRuntimeContext::InitializeDepthPipeline()
+{
+    if (!initialized_ ||
+        physicalDevice_ == VK_NULL_HANDLE ||
+        device_ == VK_NULL_HANDLE ||
+        dispatch_ == nullptr ||
+        shaderDirectory_.empty())
+    {
+        return false;
+    }
+
+    return depthPipeline_.Initialize(
+        physicalDevice_,
+        device_,
+        dispatch_,
+        shaderDirectory_);
+}
+
+bool RtRuntimeContext::IsDepthPipelineReady() const
+{
+    return initialized_ && depthPipeline_.IsReady();
 }
