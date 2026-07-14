@@ -24,6 +24,8 @@ add_library(cloisim_vulkan_rt SHARED
     src/shader_binding_table.cpp
     src/shader_loader.cpp
     src/depth_pipeline_resources.cpp
+    src/unity_output_texture.cpp
+    src/depth_trace_recorder.cpp
 )
 
 target_include_directories(cloisim_vulkan_rt PRIVATE
