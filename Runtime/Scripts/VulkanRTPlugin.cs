@@ -9,7 +9,7 @@ namespace CLOiSim.VulkanRT
     {
         private const string LibraryName = "cloisim_vulkan_rt";
 
-        public const uint ExpectedAbiVersion = 1;
+        public const uint ExpectedAbiVersion = 2;
 
         [StructLayout(LayoutKind.Sequential)]
         public struct Capabilities
@@ -20,6 +20,7 @@ namespace CLOiSim.VulkanRT
             public uint deviceId;
             public uint pluginLoaded;
             public uint vulkanDeviceReady;
+            public uint dispatchLoaded;
             public uint accelerationStructure;
             public uint rayTracingPipeline;
             public uint rayQuery;

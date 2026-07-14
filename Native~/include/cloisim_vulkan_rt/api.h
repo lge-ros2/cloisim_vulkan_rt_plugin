@@ -16,6 +16,7 @@ struct CloiSimRtCapabilities
     uint32_t deviceId;
     uint32_t pluginLoaded;
     uint32_t vulkanDeviceReady;
+    uint32_t dispatchLoaded;
     uint32_t accelerationStructure;
     uint32_t rayTracingPipeline;
     uint32_t rayQuery;

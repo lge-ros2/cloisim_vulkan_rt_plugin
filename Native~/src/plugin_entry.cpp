@@ -62,7 +62,7 @@ UnityPluginUnload()
 
 uint32_t CLOISimRt_GetAbiVersion()
 {
-    return 1;
+    return 2;
 }
 
 int32_t CLOISimRt_GetCapabilities(CloiSimRtCapabilities* capabilities)

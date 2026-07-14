@@ -2,6 +2,7 @@
 
 #include "cloisim_vulkan_rt/api.h"
 #include "vulkan_interceptor.h"
+#include "vulkan_dispatch.h"
 
 #include <cstring>
 
@@ -26,6 +27,7 @@ void UnityVulkanBridge::OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType)
 {
     if (eventType == kUnityGfxDeviceEventShutdown)
     {
+        VulkanDispatch::Instance().Reset();
         instance_ = {};
         initialized_ = false;
         return;
@@ -36,6 +38,14 @@ void UnityVulkanBridge::OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType)
 
     instance_ = vulkan_->Instance();
     initialized_ = instance_.device != VK_NULL_HANDLE;
+
+    if (initialized_)
+    {
+        VulkanDispatch::Instance().Load(
+            instance_.instance,
+            instance_.device,
+            instance_.getInstanceProcAddr);
+    }
 }
 
 bool UnityVulkanBridge::GetCapabilities(CloiSimRtCapabilities* capabilities) const
@@ -44,9 +54,11 @@ bool UnityVulkanBridge::GetCapabilities(CloiSimRtCapabilities* capabilities) con
         return false;
 
     std::memset(capabilities, 0, sizeof(*capabilities));
-    capabilities->abiVersion = 1;
+    capabilities->abiVersion = 2;
     capabilities->pluginLoaded = 1;
     capabilities->vulkanDeviceReady = 1;
+    capabilities->dispatchLoaded =
+        VulkanDispatch::Instance().IsLoaded() ? 1U : 0U;
 
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(instance_.physicalDevice, &properties);

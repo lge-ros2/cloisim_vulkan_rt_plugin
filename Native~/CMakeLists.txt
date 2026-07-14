@@ -12,6 +12,7 @@ add_library(cloisim_vulkan_rt SHARED
     src/plugin_entry.cpp
     src/unity_vulkan_bridge.cpp
     src/vulkan_interceptor.cpp
+    src/vulkan_dispatch.cpp
 )
 
 target_include_directories(cloisim_vulkan_rt PRIVATE
