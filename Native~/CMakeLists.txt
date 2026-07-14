@@ -55,3 +55,9 @@ set_target_properties(cloisim_vulkan_rt PROPERTIES
 )
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CompileShaders.cmake)
+
+include(CTest)
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
