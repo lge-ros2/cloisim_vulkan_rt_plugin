@@ -2,6 +2,12 @@ cmake_minimum_required(VERSION 3.22)
 
 project(cloisim_vulkan_rt VERSION 0.1.0 LANGUAGES CXX)
 
+option(
+    CLOISIM_RT_BUILD_GPU_TESTS
+    "Build standalone Vulkan GPU tests"
+    OFF
+)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -60,4 +66,8 @@ include(CTest)
 
 if(BUILD_TESTING)
     add_subdirectory(tests)
+endif()
+
+if(BUILD_TESTING AND CLOISIM_RT_BUILD_GPU_TESTS)
+    add_subdirectory(tests/gpu)
 endif()
