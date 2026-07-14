@@ -39,10 +39,25 @@ static void UNITY_INTERFACE_API OnRenderEvent(int eventId, void*)
         state.currentFrameNumber,
         state.safeFrameNumber);
 
-    if (eventId == 4)
-        context.CollectDeferred();
+    switch (eventId)
+    {
+    case 2:
+        context.RecordSmokeBuild(state.commandBuffer);
+        break;
 
-    // BuildScene and TraceSensor are connected after scene input ABI is added.
+    case 3:
+        // RecordDepthTrace() 내부 AccessTexture()가 state를 무효화하므로
+        // 함수 안에서 CommandRecordingState()를 다시 획득한다.
+        context.RecordDepthTrace(vulkan);
+        break;
+
+    case 4:
+        context.CollectDeferred();
+        break;
+
+    default:
+        break;
+    }
 }
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API
@@ -108,4 +123,30 @@ int32_t CLOISimRt_IsDepthPipelineReady()
     return RtRuntimeContext::Instance().IsDepthPipelineReady()
         ? 1
         : 0;
+}
+
+int32_t CLOISimRt_SetDepthOutput(
+    const CloiSimRtDepthOutput* output)
+{
+    if (output == nullptr)
+        return -1;
+
+    return RtRuntimeContext::Instance().SetDepthOutput(
+        output->nativeTexture,
+        output->width,
+        output->height)
+        ? 0
+        : -1;
+}
+
+int32_t CLOISimRt_IsSmokeSceneReady()
+{
+    return RtRuntimeContext::Instance().IsSmokeSceneReady()
+        ? 1
+        : 0;
+}
+
+int32_t CLOISimRt_GetLastTraceStatus()
+{
+    return RtRuntimeContext::Instance().LastTraceStatus();
 }
