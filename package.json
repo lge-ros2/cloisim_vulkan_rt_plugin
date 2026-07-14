@@ -1,5 +1,5 @@
 {
-  "name": "com.lge.cloisim.vulkan-rt",
+  "name": "com.lge-ros2.cloisim.vulkan-rt",
   "version": "0.1.0",
   "displayName": "CLOiSim Vulkan Ray Tracing",
   "description": "Native Vulkan ray tracing integration for Unity-based robot simulation.",
