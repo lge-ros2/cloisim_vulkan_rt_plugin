@@ -295,3 +295,91 @@ VkResult VKAPI_PTR VulkanInterceptor::CreateDevice(
     if (existingAs != nullptr)
     {
         existingAs->accelerationStructure = VK_TRUE;
+    }
+    else
+    {
+        injectedAs.accelerationStructure = VK_TRUE;
+        injectedAs.pNext = featureChain;
+        featureChain = &injectedAs;
+    }
+
+    auto* existingRt = reinterpret_cast<
+        VkPhysicalDeviceRayTracingPipelineFeaturesKHR*>(
+            FindStructure(
+                source->pNext,
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR));
+
+    if (existingRt != nullptr)
+    {
+        existingRt->rayTracingPipeline = VK_TRUE;
+    }
+    else
+    {
+        injectedRt.rayTracingPipeline = VK_TRUE;
+        injectedRt.pNext = featureChain;
+        featureChain = &injectedRt;
+    }
+
+    if (g_hasRayQuery &&
+        supportedRq.rayQuery == VK_TRUE)
+    {
+        auto* existingRq = reinterpret_cast<
+            VkPhysicalDeviceRayQueryFeaturesKHR*>(
+                FindStructure(
+                    source->pNext,
+                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR));
+
+        if (existingRq != nullptr)
+        {
+            existingRq->rayQuery = VK_TRUE;
+        }
+        else
+        {
+            injectedRq.rayQuery = VK_TRUE;
+            injectedRq.pNext = featureChain;
+            featureChain = &injectedRq;
+        }
+    }
+
+    VkDeviceCreateInfo createInfo = *source;
+
+    createInfo.enabledExtensionCount =
+        static_cast<uint32_t>(extensions.size());
+
+    createInfo.ppEnabledExtensionNames =
+        extensions.data();
+
+    createInfo.pNext = featureChain;
+
+    result = g_nextCreateDevice(
+        physicalDevice,
+        &createInfo,
+        allocator,
+        device);
+
+    g_deviceCreatedWithRt =
+        result == VK_SUCCESS;
+
+    return result;
+}
+
+void VulkanInterceptor::FillCapabilities(
+    CloiSimRtCapabilities& capabilities)
+{
+    capabilities.accelerationStructure =
+        g_hasAccelerationStructure ? 1U : 0U;
+
+    capabilities.rayTracingPipeline =
+        g_hasRayTracingPipeline ? 1U : 0U;
+
+    capabilities.rayQuery =
+        g_hasRayQuery ? 1U : 0U;
+
+    capabilities.bufferDeviceAddress =
+        g_hasBufferDeviceAddress ? 1U : 0U;
+}
+
+bool VulkanInterceptor::NativeBackendAvailable()
+{
+    return g_deviceCreatedWithRt;
+}

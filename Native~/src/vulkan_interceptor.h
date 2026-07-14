@@ -8,20 +8,26 @@
 class VulkanInterceptor
 {
 public:
-    static PFN_vkGetInstanceProcAddr UNITY_INTERFACE_API InitializationCallback(
+    static PFN_vkGetInstanceProcAddr UNITY_INTERFACE_API
+    InitializationCallback(
         PFN_vkGetInstanceProcAddr next,
         void* userData);
 
-    static void FillCapabilities(CloiSimRtCapabilities& capabilities);
+    static void FillCapabilities(
+        CloiSimRtCapabilities& capabilities);
+
     static bool NativeBackendAvailable();
 
 private:
-    static PFN_vkVoidFunction VKAPI_PTR GetInstanceProcAddr(
+    static PFN_vkVoidFunction VKAPI_PTR
+    GetInstanceProcAddr(
         VkInstance instance,
         const char* name);
 
-    static VkResult VKAPI_PTR CreateDevice(
+    static VkResult VKAPI_PTR
+    CreateDevice(
         VkPhysicalDevice physicalDevice,
         const VkDeviceCreateInfo* createInfo,
         const VkAllocationCallbacks* allocator,
         VkDevice* device);
+};
