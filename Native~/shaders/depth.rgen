@@ -1,0 +1,38 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+
+layout(set = 0, binding = 0)
+uniform accelerationStructureEXT scene;
+
+layout(set = 0, binding = 1, r32f)
+uniform image2D outputDepth;
+
+layout(location = 0) rayPayloadEXT float hitDistance;
+
+void main()
+{
+    const ivec2 pixel = ivec2(gl_LaunchIDEXT.xy);
+    const vec2 launchSize = vec2(gl_LaunchSizeEXT.xy);
+    const vec2 uv = (vec2(pixel) + vec2(0.5)) / launchSize;
+    const vec2 ndc = uv * 2.0 - 1.0;
+
+    const vec3 origin = vec3(0.0);
+    const vec3 direction = normalize(vec3(ndc.x, -ndc.y, 1.0));
+
+    hitDistance = 1.0e30;
+
+    traceRayEXT(
+        scene,
+        gl_RayFlagsOpaqueEXT,
+        0xff,
+        0,
+        0,
+        0,
+        origin,
+        0.01,
+        direction,
+        1000.0,
+        0);
+
+    imageStore(outputDepth, pixel, vec4(hitDistance));
+}

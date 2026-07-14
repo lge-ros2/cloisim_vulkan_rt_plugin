@@ -22,6 +22,7 @@ add_library(cloisim_vulkan_rt SHARED
     src/rt_runtime_context.cpp
     src/rt_pipeline.cpp
     src/shader_binding_table.cpp
+    src/shader_loader.cpp
 )
 
 target_include_directories(cloisim_vulkan_rt PRIVATE
@@ -49,3 +50,5 @@ target_compile_options(cloisim_vulkan_rt PRIVATE
 set_target_properties(cloisim_vulkan_rt PROPERTIES
     OUTPUT_NAME "cloisim_vulkan_rt"
 )
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CompileShaders.cmake)
