@@ -5,6 +5,7 @@
 #include "cloisim_vulkan_rt/api.h"
 #include "unity_vulkan_bridge.h"
 #include "vulkan_interceptor.h"
+#include "rt_runtime_context.h"
 
 static IUnityGraphics* g_graphics = nullptr;
 
@@ -33,7 +34,15 @@ static void UNITY_INTERFACE_API OnRenderEvent(int eventId, void*)
         return;
     }
 
-    // BLAS/TLAS build and vkCmdTraceRaysKHR recording are added here.
+    auto& context = RtRuntimeContext::Instance();
+    context.BeginFrame(
+        state.currentFrameNumber,
+        state.safeFrameNumber);
+
+    if (eventId == 4)
+        context.CollectDeferred();
+
+    // BuildScene and TraceSensor are connected after scene input ABI is added.
 }
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API

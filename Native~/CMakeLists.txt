@@ -19,6 +19,7 @@ add_library(cloisim_vulkan_rt SHARED
     src/rt_scene_builder.cpp
     src/deferred_release_queue.cpp
     src/tlas_instance_buffer.cpp
+    src/rt_runtime_context.cpp
 )
 
 target_include_directories(cloisim_vulkan_rt PRIVATE

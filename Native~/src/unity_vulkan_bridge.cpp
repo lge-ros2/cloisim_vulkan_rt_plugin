@@ -3,6 +3,7 @@
 #include "cloisim_vulkan_rt/api.h"
 #include "vulkan_interceptor.h"
 #include "vulkan_dispatch.h"
+#include "rt_runtime_context.h"
 
 #include <cstring>
 
@@ -27,6 +28,7 @@ void UnityVulkanBridge::OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType)
 {
     if (eventType == kUnityGfxDeviceEventShutdown)
     {
+        RtRuntimeContext::Instance().Shutdown();
         VulkanDispatch::Instance().Reset();
         instance_ = {};
         initialized_ = false;
@@ -41,10 +43,18 @@ void UnityVulkanBridge::OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType)
 
     if (initialized_)
     {
-        VulkanDispatch::Instance().Load(
+        const bool dispatchLoaded = VulkanDispatch::Instance().Load(
             instance_.instance,
             instance_.device,
             instance_.getInstanceProcAddr);
+
+        if (dispatchLoaded)
+        {
+            RtRuntimeContext::Instance().Initialize(
+                instance_.physicalDevice,
+                instance_.device,
+                &VulkanDispatch::Instance());
+        }
     }
 }
 
