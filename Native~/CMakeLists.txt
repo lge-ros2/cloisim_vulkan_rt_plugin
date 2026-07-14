@@ -13,6 +13,8 @@ add_library(cloisim_vulkan_rt SHARED
     src/unity_vulkan_bridge.cpp
     src/vulkan_interceptor.cpp
     src/vulkan_dispatch.cpp
+    src/vulkan_memory.cpp
+    src/gpu_buffer.cpp
 )
 
 target_include_directories(cloisim_vulkan_rt PRIVATE
