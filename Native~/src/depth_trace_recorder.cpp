@@ -7,6 +7,20 @@ bool DepthTraceRecorder::Initialize(
     const RtPipeline* pipeline,
     const ShaderBindingTable* sbt)
 {
+    // pipeline/sbt는 DepthPipelineResources가 소유하는 영속 객체이므로
+    // 동일 조합이면 기존 디스크립터 풀/셋을 그대로 재사용한다.
+    // 매 프레임 파괴 후 재생성하면 이전 프레임의 트레이스가 아직
+    // GPU에서 실행 중일 때 사용 중인 디스크립터 풀을 파괴하게 되어
+    // use-after-free 위험이 있다.
+    if (device != VK_NULL_HANDLE &&
+        device == device_ &&
+        pipeline == pipeline_ &&
+        sbt == sbt_ &&
+        descriptorSet_ != VK_NULL_HANDLE)
+    {
+        return true;
+    }
+
     Shutdown();
 
     if (device == VK_NULL_HANDLE ||

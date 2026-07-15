@@ -4,4 +4,15 @@
 bool SmokeScene::Initialize(VkPhysicalDevice pd,VkDevice d,VulkanDispatch* dispatch){Destroy();if(pd==VK_NULL_HANDLE||d==VK_NULL_HANDLE||!dispatch||!dispatch->IsLoaded())return false;physicalDevice_=pd;device_=d;dispatch_=dispatch;return builder_.Initialize(pd,d,dispatch);}
 bool SmokeScene::RecordBuild(VkCommandBuffer commandBuffer){ready_=false;if(commandBuffer==VK_NULL_HANDLE||!dispatch_)return false;const std::array<float,9> v={-.5F,-.5F,2.F,.5F,-.5F,2.F,0.F,.5F,2.F};const std::array<uint32_t,3> i={0,1,2};auto usage=VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR|VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;if(!vertices_.Create(physicalDevice_,device_,dispatch_,sizeof(v),usage,VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)||!vertices_.Upload(v.data(),sizeof(v))||!indices_.Create(physicalDevice_,device_,dispatch_,sizeof(i),usage,VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)||!indices_.Upload(i.data(),sizeof(i)))return false;BlasTriangleInput input{};input.vertexAddress=vertices_.DeviceAddress();input.indexAddress=indices_.DeviceAddress();input.vertexCount=3;input.vertexStride=3*sizeof(float);input.indexCount=3;if(!builder_.CreateBlas(commandBuffer,input,blas_,blasScratch_))return false;VkMemoryBarrier barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};barrier.srcAccessMask=VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;barrier.dstAccessMask=VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;vkCmdPipelineBarrier(commandBuffer,VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,0,1,&barrier,0,nullptr,0,nullptr);VkAccelerationStructureInstanceKHR inst{};inst.transform.matrix[0][0]=1.F;inst.transform.matrix[1][1]=1.F;inst.transform.matrix[2][2]=1.F;inst.mask=0xff;inst.flags=VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;inst.accelerationStructureReference=blas_.DeviceAddress();if(!instances_.CreateAndUpload(physicalDevice_,device_,dispatch_,{inst})||!builder_.CreateTlas(commandBuffer,instances_.DeviceAddress(),instances_.InstanceCount(),tlas_,tlasScratch_))return false;RtSceneBuilder::InsertBuildBarrier(commandBuffer);ready_=true;return true;}
 void SmokeScene::Destroy(){ready_=false;tlas_.Destroy();tlasScratch_.Destroy();instances_.Destroy();blas_.Destroy();blasScratch_.Destroy();indices_.Destroy();vertices_.Destroy();physicalDevice_=VK_NULL_HANDLE;device_=VK_NULL_HANDLE;dispatch_=nullptr;}
+void SmokeScene::RetireInto(DeferredReleaseQueue& queue,uint64_t lastUsedFrame){
+ ready_=false;
+ queue.Retire(std::move(tlas_),lastUsedFrame);
+ queue.Retire(std::move(tlasScratch_),lastUsedFrame);
+ queue.Retire(instances_.ReleaseBuffer(),lastUsedFrame);
+ queue.Retire(std::move(blas_),lastUsedFrame);
+ queue.Retire(std::move(blasScratch_),lastUsedFrame);
+ queue.Retire(std::move(indices_),lastUsedFrame);
+ queue.Retire(std::move(vertices_),lastUsedFrame);
+ physicalDevice_=VK_NULL_HANDLE;device_=VK_NULL_HANDLE;dispatch_=nullptr;
+}
 GpuBuffer SmokeScene::ReleaseBlasScratch(){return std::move(blasScratch_);}GpuBuffer SmokeScene::ReleaseTlasScratch(){return std::move(tlasScratch_);}

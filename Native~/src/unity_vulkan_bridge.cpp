@@ -77,6 +77,19 @@ bool UnityVulkanBridge::GetCapabilities(CloiSimRtCapabilities* capabilities) con
     capabilities->vendorId = properties.vendorID;
     capabilities->deviceId = properties.deviceID;
 
+    auto& runtime = RtRuntimeContext::Instance();
+    if (runtime.IsDepthPipelineReady())
+    {
+        const auto& rtProperties =
+            runtime.DepthPipeline().Pipeline().Properties();
+        capabilities->maxRecursionDepth =
+            rtProperties.maxRayRecursionDepth;
+        capabilities->shaderGroupHandleSize =
+            rtProperties.shaderGroupHandleSize;
+        capabilities->shaderGroupBaseAlignment =
+            rtProperties.shaderGroupBaseAlignment;
+    }
+
     VulkanInterceptor::FillCapabilities(*capabilities);
     return true;
 }

@@ -1,13 +1,13 @@
+#pragma once
+
 #include "smoke_scene.h"
 #include "unity_output_texture.h"
 #include "depth_trace_recorder.h"
 #include "IUnityGraphics.h"
 #include "IUnityGraphicsVulkan.h"
-#pragma once
 
 #include "depth_pipeline_resources.h"
 #include "deferred_release_queue.h"
-#include "rt_scene_builder.h"
 #include "vulkan_dispatch.h"
 
 #include <vulkan/vulkan.h>
@@ -54,8 +54,7 @@ public:
     bool IsInitialized() const { return initialized_; }
     uint64_t CurrentFrameNumber() const { return currentFrameNumber_; }
     uint64_t SafeFrameNumber() const { return safeFrameNumber_; }
-
-    RtSceneBuilder& SceneBuilder() { return sceneBuilder_; }
+    const DepthPipelineResources& DepthPipeline() const { return depthPipeline_; }
     DeferredReleaseQueue& DeferredReleases()
     {
         return deferredReleases_;
@@ -65,7 +64,6 @@ private:
     VkPhysicalDevice physicalDevice_ = VK_NULL_HANDLE;
     VkDevice device_ = VK_NULL_HANDLE;
     VulkanDispatch* dispatch_ = nullptr;
-    RtSceneBuilder sceneBuilder_;
     SmokeScene smokeScene_;
     UnityOutputTexture outputTexture_;
     DepthTraceRecorder traceRecorder_;

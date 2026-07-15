@@ -21,14 +21,6 @@ bool RtRuntimeContext::Initialize(
         return false;
     }
 
-    if (!sceneBuilder_.Initialize(
-            physicalDevice,
-            device,
-            dispatch))
-    {
-        return false;
-    }
-
     physicalDevice_ = physicalDevice;
     device_ = device;
     dispatch_ = dispatch;
@@ -147,7 +139,7 @@ bool RtRuntimeContext::RecordSmokeBuild(
         return false;
     }
 
-    smokeScene_.Destroy();
+    smokeScene_.RetireInto(deferredReleases_, currentFrameNumber_);
 
     if (!smokeScene_.Initialize(
             physicalDevice_,
@@ -205,7 +197,9 @@ bool RtRuntimeContext::RecordDepthTrace(
     if (!outputTexture_.EnsureView(device_))
         return false;
 
-    // AccessTexture() 호출로 이전 recording state는 무효화된다.
+    // AccessTexture() 호출로 이전 recording state는 무효화되므로 다시
+    // 획득한다. frame 번호는 OnRenderEvent에서 이미 BeginFrame()으로
+    // 설정되어 있으므로 여기서 다시 호출해 중복 Collect할 필요는 없다.
     UnityVulkanRecordingState recordingState{};
 
     if (!vulkan->CommandRecordingState(
@@ -214,10 +208,6 @@ bool RtRuntimeContext::RecordDepthTrace(
     {
         return false;
     }
-
-    BeginFrame(
-        recordingState.currentFrameNumber,
-        recordingState.safeFrameNumber);
 
     if (!traceRecorder_.Initialize(
             device_,
