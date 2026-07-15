@@ -8,6 +8,12 @@ option(
     OFF
 )
 
+option(
+    CLOISIM_RT_DEPLOY_RUNTIME
+    "Deploy native plugin and SPIR-V shaders to Runtime"
+    OFF
+)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -62,6 +68,58 @@ set_target_properties(cloisim_vulkan_rt PROPERTIES
 )
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CompileShaders.cmake)
+
+if(CLOISIM_RT_DEPLOY_RUNTIME)
+    set(
+        CLOISIM_RT_RUNTIME_PLUGIN_DIR
+        "${CMAKE_CURRENT_SOURCE_DIR}/../Runtime/Plugins/Linux/x86_64"
+    )
+
+    set(
+        CLOISIM_RT_RUNTIME_SHADER_DIR
+        "${CMAKE_CURRENT_SOURCE_DIR}/../Runtime/Shaders"
+    )
+
+    add_custom_target(cloisim_vulkan_rt_deploy ALL
+        COMMAND
+            ${CMAKE_COMMAND} -E make_directory
+            "${CLOISIM_RT_RUNTIME_PLUGIN_DIR}"
+
+        COMMAND
+            ${CMAKE_COMMAND} -E make_directory
+            "${CLOISIM_RT_RUNTIME_SHADER_DIR}"
+
+        COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:cloisim_vulkan_rt>"
+            "${CLOISIM_RT_RUNTIME_PLUGIN_DIR}/$<TARGET_FILE_NAME:cloisim_vulkan_rt>"
+
+        COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different
+            "${CLOISIM_SHADER_OUTPUT_DIR}/depth.rgen.spv"
+            "${CLOISIM_RT_RUNTIME_SHADER_DIR}/depth.rgen.spv"
+
+        COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different
+            "${CLOISIM_SHADER_OUTPUT_DIR}/depth.rmiss.spv"
+            "${CLOISIM_RT_RUNTIME_SHADER_DIR}/depth.rmiss.spv"
+
+        COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different
+            "${CLOISIM_SHADER_OUTPUT_DIR}/depth.rchit.spv"
+            "${CLOISIM_RT_RUNTIME_SHADER_DIR}/depth.rchit.spv"
+
+        DEPENDS
+            cloisim_vulkan_rt
+            cloisim_vulkan_rt_shaders
+
+        COMMENT
+            "Deploying CLOiSim Vulkan RT runtime artifacts"
+
+        VERBATIM
+    )
+endif()
+
 
 include(CTest)
 
