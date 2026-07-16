@@ -66,7 +66,7 @@ CLOISIM_RT_PLUGIN_PATH=Native~/build/libcloisim_vulkan_rt.so \
 Or run the full pipeline (build, CTest, .NET tests) in one step:
 
 ```bash
-./scripts/run_native_validation.sh
+./scripts~/run_native_validation.sh
 ```
 
 ## Unity Package Reference

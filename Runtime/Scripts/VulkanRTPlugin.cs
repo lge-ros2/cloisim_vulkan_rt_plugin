@@ -140,5 +140,29 @@ namespace CLOiSim.VulkanRT
         {
             return CLOISimRt_GetRenderEventFunc();
         }
-    }
+
+        [DllImport(LibraryName)]
+        private static extern IntPtr
+            CLOISimRt_GetRenderEventFunc();
+
+        public static IntPtr RenderEventFunc
+        {
+            get
+            {
+                try
+                {
+                    return CLOISimRt_GetRenderEventFunc();
+                }
+                catch (DllNotFoundException)
+                {
+                    return IntPtr.Zero;
+                }
+                catch (EntryPointNotFoundException)
+                {
+                    return IntPtr.Zero;
+                }
+            }
+        }
+
+}
 }
