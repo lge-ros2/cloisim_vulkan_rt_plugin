@@ -23,6 +23,27 @@ Copy the build output to the following location.
 Runtime/Plugins/Linux/x86_64/libcloisim_vulkan_rt.so
 ```
 
+### Release build
+
+Set `-DCLOISIM_RT_DEPLOY_RUNTIME=ON` to have CMake copy the built plugin and
+SPIR-V shaders into `Runtime/` automatically, skipping the manual copy step above.
+
+```bash
+rm -rf Native~/build-release
+
+cmake \
+  -S Native~ \
+  -B Native~/build-release \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_TESTING=OFF \
+  -DCLOISIM_RT_BUILD_GPU_TESTS=OFF \
+  -DCLOISIM_RT_DEPLOY_RUNTIME=ON
+
+cmake \
+  --build Native~/build-release \
+  -j"$(nproc)"
+```
+
 ## Test
 
 CPU-only unit tests (ABI layout, shader loader, SPIR-V outputs, Vulkan instance layout) run via CTest.
