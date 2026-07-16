@@ -1,0 +1,16 @@
+{
+  "name": "CLOiSim.VulkanRT.MinimalDepthSensor",
+  "rootNamespace": "CLOiSim.VulkanRT.Samples",
+  "references": [
+    "CLOiSim.VulkanRT.Runtime"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
