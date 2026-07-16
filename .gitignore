@@ -90,3 +90,13 @@ Thumbs.db
 *.tmp
 *.swp
 *~
+
+# Unity runtime deployment artifacts
+!Runtime/Shaders/
+!Runtime/Shaders/*.spv
+!Runtime/Shaders/*.spv.meta
+!Runtime/Plugins/
+!Runtime/Plugins/Linux/
+!Runtime/Plugins/Linux/x86_64/
+!Runtime/Plugins/Linux/x86_64/*.so
+!Runtime/Plugins/Linux/x86_64/*.so.meta
