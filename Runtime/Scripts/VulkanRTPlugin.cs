@@ -9,6 +9,9 @@ namespace CLOiSim.VulkanRT
     {
         private const string LibraryName = "cloisim_vulkan_rt";
 
+        [DllImport(LibraryName)]
+        private static extern IntPtr CLOISimRt_GetRenderEventFunc();
+
         public const uint ExpectedAbiVersion = 2;
 
         [StructLayout(LayoutKind.Sequential)]
@@ -36,8 +39,6 @@ namespace CLOiSim.VulkanRT
         [DllImport(LibraryName)]
         private static extern int CLOISimRt_GetCapabilities(out Capabilities capabilities);
 
-        [DllImport(LibraryName)]
-        private static extern IntPtr CLOISimRt_GetRenderEventFunc();
 
         [DllImport(LibraryName)]
         private static extern int CLOISimRt_IsNativeBackendAvailable();
@@ -141,9 +142,6 @@ namespace CLOiSim.VulkanRT
             return CLOISimRt_GetRenderEventFunc();
         }
 
-        [DllImport(LibraryName)]
-        private static extern IntPtr
-            CLOISimRt_GetRenderEventFunc();
 
         public static IntPtr RenderEventFunc
         {
