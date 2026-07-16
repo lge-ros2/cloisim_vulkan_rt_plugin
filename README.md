@@ -69,9 +69,11 @@ Or run the full pipeline (build, CTest, .NET tests) in one step:
 ./scripts/run_native_validation.sh
 ```
 
-## CLOiSim Local Reference
+## Unity Package Reference
 
-Add to CLOiSim's `Packages/manifest.json`.
+Add this package to CLOiSim's `Packages/manifest.json` using one of the following methods.
+
+### Local path (development)
 
 ```json
 {
@@ -80,3 +82,15 @@ Add to CLOiSim's `Packages/manifest.json`.
   }
 }
 ```
+
+### Git URL
+
+```json
+{
+  "dependencies": {
+    "com.lge-ros2.cloisim.vulkan-rt": "https://github.com/lge-ros2/cloisim_vulkan_rt_plugin.git"
+  }
+}
+```
+
+Pin to a specific commit or tag with `#<revision>`, e.g. `https://github.com/lge-ros2/cloisim_vulkan_rt_plugin.git#v0.1.0`.
