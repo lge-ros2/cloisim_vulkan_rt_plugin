@@ -47,60 +47,79 @@ namespace CLOiSim.VulkanRT.Samples
             LastSucceeded = null;
             LastMessage = string.Empty;
 
+            var inner = RunSmokeTestSteps();
             try
             {
-                if (SystemInfo.graphicsDeviceType != GraphicsDeviceType.Vulkan)
+                while (true)
                 {
-                    Complete(false, "Vulkan graphics API is required.");
-                    yield break;
+                    bool moved;
+                    try
+                    {
+                        moved = inner.MoveNext();
+                    }
+                    catch (Exception exception)
+                    {
+                        Complete(false, exception.ToString());
+                        yield break;
+                    }
+
+                    if (!moved)
+                        yield break;
+
+                    yield return inner.Current;
                 }
-
-                if (!TryResolveShaderDirectory(out var shaderDirectory))
-                {
-                    Complete(
-                        false,
-                        "SPIR-V directory was not found. Set Shader Directory " +
-                        "Override or CLOISIM_RT_SHADER_DIR.");
-                    yield break;
-                }
-
-                if (!VulkanRTPlugin.InitializeDepthPipeline(shaderDirectory))
-                {
-                    Complete(false, "Depth pipeline initialization failed.");
-                    yield break;
-                }
-
-                var smokeTest = GetComponent<VulkanRTSmokeTest>();
-                if (smokeTest == null)
-                    smokeTest = gameObject.AddComponent<VulkanRTSmokeTest>();
-
-                var callbackInvoked = false;
-                var succeeded = false;
-                var detail = string.Empty;
-
-                yield return smokeTest.Run((ok, message) =>
-                {
-                    callbackInvoked = true;
-                    succeeded = ok;
-                    detail = message ?? string.Empty;
-                });
-
-                if (!callbackInvoked)
-                {
-                    Complete(false, "Smoke test returned no result.");
-                    yield break;
-                }
-
-                Complete(succeeded, detail);
-            }
-            catch (Exception exception)
-            {
-                Complete(false, exception.ToString());
             }
             finally
             {
                 running = false;
             }
+        }
+
+        private IEnumerator RunSmokeTestSteps()
+        {
+            if (SystemInfo.graphicsDeviceType != GraphicsDeviceType.Vulkan)
+            {
+                Complete(false, "Vulkan graphics API is required.");
+                yield break;
+            }
+
+            if (!TryResolveShaderDirectory(out var shaderDirectory))
+            {
+                Complete(
+                    false,
+                    "SPIR-V directory was not found. Set Shader Directory " +
+                    "Override or CLOISIM_RT_SHADER_DIR.");
+                yield break;
+            }
+
+            if (!VulkanRTPlugin.InitializeDepthPipeline(shaderDirectory))
+            {
+                Complete(false, "Depth pipeline initialization failed.");
+                yield break;
+            }
+
+            var smokeTest = GetComponent<VulkanRTSmokeTest>();
+            if (smokeTest == null)
+                smokeTest = gameObject.AddComponent<VulkanRTSmokeTest>();
+
+            var callbackInvoked = false;
+            var succeeded = false;
+            var detail = string.Empty;
+
+            yield return smokeTest.Run((ok, message) =>
+            {
+                callbackInvoked = true;
+                succeeded = ok;
+                detail = message ?? string.Empty;
+            });
+
+            if (!callbackInvoked)
+            {
+                Complete(false, "Smoke test returned no result.");
+                yield break;
+            }
+
+            Complete(succeeded, detail);
         }
 
         private bool TryResolveShaderDirectory(out string directory)
