@@ -218,22 +218,6 @@ namespace CLOiSim.VulkanRT
                     centerIsValid && cornerIsMiss,
                     $"center={center}, corner={corner}");
             }
-            catch (DllNotFoundException exception)
-            {
-                completed(
-                    false,
-                    $"Native plugin was not found: {exception.Message}");
-            }
-            catch (EntryPointNotFoundException exception)
-            {
-                completed(
-                    false,
-                    $"Native entry point was not found: {exception.Message}");
-            }
-            catch (Exception exception)
-            {
-                completed(false, exception.ToString());
-            }
             finally
             {
                 output.Release();
