@@ -4,6 +4,10 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.Rendering;
 
+#if UNITY_EDITOR
+using UnityEditor.PackageManager;
+#endif
+
 namespace CLOiSim.VulkanRT.Samples
 {
     public sealed class MinimalDepthSensorSample : MonoBehaviour
@@ -126,26 +130,67 @@ namespace CLOiSim.VulkanRT.Samples
         {
             directory = shaderDirectoryOverride?.Trim() ?? string.Empty;
 
-            if (string.IsNullOrEmpty(directory))
+            if (IsShaderDirectoryValid(directory))
             {
-                directory = Environment.GetEnvironmentVariable(
-                    ShaderDirectoryEnvironment) ?? string.Empty;
+                SetShaderDirectoryEnvironment(directory);
+                return true;
             }
 
-            if (string.IsNullOrEmpty(directory))
+            directory = Environment.GetEnvironmentVariable(
+                ShaderDirectoryEnvironment) ?? string.Empty;
+
+            if (IsShaderDirectoryValid(directory))
             {
-                directory = Path.GetFullPath(
-                    Path.Combine(
-                        Application.dataPath,
-                        "..",
-                        "Packages",
-                        PackageId,
-                        "Runtime",
-                        "Shaders"));
+                SetShaderDirectoryEnvironment(directory);
+                return true;
             }
 
-            if (!Directory.Exists(directory))
+#if UNITY_EDITOR
+            var packageInfo = PackageInfo.FindForAssembly(
+                typeof(VulkanRTPlugin).Assembly);
+
+            if (packageInfo != null &&
+                !string.IsNullOrWhiteSpace(packageInfo.resolvedPath))
+            {
+                directory = Path.Combine(
+                    packageInfo.resolvedPath,
+                    "Runtime",
+                    "Shaders");
+
+                if (IsShaderDirectoryValid(directory))
+                {
+                    SetShaderDirectoryEnvironment(directory);
+                    return true;
+                }
+            }
+#endif
+
+            directory = Path.GetFullPath(
+                Path.Combine(
+                    Application.dataPath,
+                    "..",
+                    "Packages",
+                    PackageId,
+                    "Runtime",
+                    "Shaders"));
+
+            if (IsShaderDirectoryValid(directory))
+            {
+                SetShaderDirectoryEnvironment(directory);
+                return true;
+            }
+
+            directory = string.Empty;
+            return false;
+        }
+
+        private static bool IsShaderDirectoryValid(string directory)
+        {
+            if (string.IsNullOrWhiteSpace(directory) ||
+                !Directory.Exists(directory))
+            {
                 return false;
+            }
 
             foreach (var name in new[]
                      {
@@ -159,6 +204,15 @@ namespace CLOiSim.VulkanRT.Samples
             }
 
             return true;
+        }
+
+        private static void SetShaderDirectoryEnvironment(string directory)
+        {
+            directory = Path.GetFullPath(directory);
+
+            Environment.SetEnvironmentVariable(
+                ShaderDirectoryEnvironment,
+                directory);
         }
 
         private void Complete(bool succeeded, string message)
