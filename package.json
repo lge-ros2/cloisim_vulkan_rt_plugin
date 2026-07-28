@@ -11,7 +11,7 @@
     {
       "displayName": "Minimal Depth Sensor",
       "description": "Minimal Vulkan ray tracing depth output example.",
-      "path": "Samples/MinimalDepthSensor"
+      "path": "Samples~/MinimalDepthSensor"
     }
   ]
 }

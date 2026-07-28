@@ -5,6 +5,7 @@
 #include "vulkan_dispatch.h"
 #include "rt_runtime_context.h"
 
+#include <cstdio>
 #include <cstring>
 
 UnityVulkanBridge& UnityVulkanBridge::Instance()
@@ -20,12 +21,27 @@ void UnityVulkanBridge::Load(IUnityInterfaces* interfaces)
 
 bool UnityVulkanBridge::InstallInitializationInterceptor()
 {
-    return vulkan_ != nullptr && vulkan_->InterceptInitialization(
-        VulkanInterceptor::InitializationCallback, nullptr);
+    const bool installed =
+        vulkan_ != nullptr && vulkan_->InterceptInitialization(
+            VulkanInterceptor::InitializationCallback, nullptr);
+
+    std::fprintf(
+        stderr,
+        "[CLOiSimRt] InstallInitializationInterceptor: vulkan_=%p "
+        "installed=%d\n",
+        reinterpret_cast<void*>(vulkan_),
+        installed);
+
+    return installed;
 }
 
 void UnityVulkanBridge::OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType)
 {
+    std::fprintf(
+        stderr,
+        "[CLOiSimRt] OnGraphicsDeviceEvent: eventType=%d\n",
+        static_cast<int>(eventType));
+
     if (eventType == kUnityGfxDeviceEventShutdown)
     {
         RtRuntimeContext::Instance().Shutdown();
@@ -41,12 +57,25 @@ void UnityVulkanBridge::OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType)
     instance_ = vulkan_->Instance();
     initialized_ = instance_.device != VK_NULL_HANDLE;
 
+    std::fprintf(
+        stderr,
+        "[CLOiSimRt] OnGraphicsDeviceEvent: initialized_=%d "
+        "device=%p nativeBackendAvailable=%d\n",
+        initialized_,
+        reinterpret_cast<void*>(instance_.device),
+        VulkanInterceptor::NativeBackendAvailable());
+
     if (initialized_)
     {
         const bool dispatchLoaded = VulkanDispatch::Instance().Load(
             instance_.instance,
             instance_.device,
             instance_.getInstanceProcAddr);
+
+        std::fprintf(
+            stderr,
+            "[CLOiSimRt] OnGraphicsDeviceEvent: dispatchLoaded=%d\n",
+            dispatchLoaded);
 
         if (dispatchLoaded)
         {

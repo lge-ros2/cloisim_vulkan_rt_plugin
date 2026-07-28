@@ -1,6 +1,7 @@
 #include "vulkan_interceptor.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <vector>
 
@@ -123,11 +124,24 @@ VkResult VKAPI_PTR VulkanInterceptor::CreateDevice(
     g_deviceCreatedWithRt = false;
 
     if (g_nextCreateDevice == nullptr || source == nullptr)
+    {
+        std::fprintf(
+            stderr,
+            "[CLOiSimRt] CreateDevice: g_nextCreateDevice=%p source=%p\n",
+            reinterpret_cast<void*>(g_nextCreateDevice),
+            reinterpret_cast<const void*>(source));
         return VK_ERROR_INITIALIZATION_FAILED;
+    }
 
     if (g_enumerateDeviceExtensions == nullptr ||
         g_getPhysicalDeviceFeatures2 == nullptr)
     {
+        std::fprintf(
+            stderr,
+            "[CLOiSimRt] CreateDevice: bail - "
+            "g_enumerateDeviceExtensions=%p g_getPhysicalDeviceFeatures2=%p\n",
+            reinterpret_cast<void*>(g_enumerateDeviceExtensions),
+            reinterpret_cast<void*>(g_getPhysicalDeviceFeatures2));
         return g_nextCreateDevice(
             physicalDevice,
             source,
@@ -192,6 +206,14 @@ VkResult VKAPI_PTR VulkanInterceptor::CreateDevice(
         !g_hasBufferDeviceAddress ||
         !hasDeferredHostOperations)
     {
+        std::fprintf(
+            stderr,
+            "[CLOiSimRt] CreateDevice: bail - missing device extension "
+            "as=%d rt=%d bda=%d dho=%d\n",
+            g_hasAccelerationStructure,
+            g_hasRayTracingPipeline,
+            g_hasBufferDeviceAddress,
+            hasDeferredHostOperations);
         return g_nextCreateDevice(
             physicalDevice,
             source,
@@ -225,6 +247,13 @@ VkResult VKAPI_PTR VulkanInterceptor::CreateDevice(
         supportedAs.accelerationStructure != VK_TRUE ||
         supportedRt.rayTracingPipeline != VK_TRUE)
     {
+        std::fprintf(
+            stderr,
+            "[CLOiSimRt] CreateDevice: bail - unsupported feature "
+            "bda=%d as=%d rt=%d\n",
+            supportedBda.bufferDeviceAddress,
+            supportedAs.accelerationStructure,
+            supportedRt.rayTracingPipeline);
         return g_nextCreateDevice(
             physicalDevice,
             source,
@@ -359,6 +388,11 @@ VkResult VKAPI_PTR VulkanInterceptor::CreateDevice(
 
     g_deviceCreatedWithRt =
         result == VK_SUCCESS;
+
+    std::fprintf(
+        stderr,
+        "[CLOiSimRt] CreateDevice: injected RT extensions, result=%d\n",
+        result);
 
     return result;
 }
