@@ -89,7 +89,10 @@ Thumbs.db
 *.local
 *.tmp
 *.swp
-*~
+# Editor backup files (e.g. foo.cs~) only — a bare "*~" also matches this
+# repo's Unity tilde-suffixed folders (Native~, Tests~, Samples~), silently
+# hiding every new file added under them from git.
+*.*~
 
 # Unity runtime deployment artifacts
 !Runtime/Shaders/

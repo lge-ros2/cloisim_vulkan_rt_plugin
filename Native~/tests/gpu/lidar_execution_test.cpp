@@ -1,6 +1,7 @@
 #include "acceleration_structure.h"
-#include "depth_trace_recorder.h"
 #include "gpu_buffer.h"
+#include "lidar_params_gpu.h"
+#include "lidar_trace_recorder.h"
 #include "rt_descriptor_bindings.h"
 #include "rt_pipeline.h"
 #include "rt_scene_builder.h"
@@ -23,33 +24,8 @@
 namespace
 {
 constexpr int kSkip = 77;
-constexpr uint32_t kWidth = 16;
-constexpr uint32_t kHeight = 16;
-
-struct ImageResource
-{
-    VkDevice device = VK_NULL_HANDLE;
-    VkImage image = VK_NULL_HANDLE;
-    VkDeviceMemory memory = VK_NULL_HANDLE;
-    VkImageView view = VK_NULL_HANDLE;
-
-    void Destroy()
-    {
-        if (device != VK_NULL_HANDLE)
-        {
-            if (view != VK_NULL_HANDLE)
-                vkDestroyImageView(device, view, nullptr);
-            if (image != VK_NULL_HANDLE)
-                vkDestroyImage(device, image, nullptr);
-            if (memory != VK_NULL_HANDLE)
-                vkFreeMemory(device, memory, nullptr);
-        }
-        view = VK_NULL_HANDLE;
-        image = VK_NULL_HANDLE;
-        memory = VK_NULL_HANDLE;
-        device = VK_NULL_HANDLE;
-    }
-};
+constexpr uint32_t kSamplesH = 2;
+constexpr uint32_t kSamplesV = 1;
 
 bool HasExtension(
     const std::vector<VkExtensionProperties>& properties,
@@ -74,102 +50,12 @@ int Fail(const char* reason)
     std::cerr << "[FAIL] " << reason << '\n';
     return 1;
 }
-
-bool CreateOutputImage(
-    VkPhysicalDevice physicalDevice,
-    VkDevice device,
-    ImageResource& output)
-{
-    output.device = device;
-
-    VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.format = VK_FORMAT_R32_SFLOAT;
-    imageInfo.extent = {kWidth, kHeight, 1};
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 1;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.usage =
-        VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-    if (vkCreateImage(device, &imageInfo, nullptr, &output.image) != VK_SUCCESS)
-        return false;
-
-    VkMemoryRequirements requirements{};
-    vkGetImageMemoryRequirements(device, output.image, &requirements);
-
-    VkMemoryPropertyFlags selected = 0;
-    if (VulkanMemory::Allocate(
-            physicalDevice,
-            device,
-            requirements,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            0,
-            false,
-            output.memory,
-            selected) != VK_SUCCESS)
-    {
-        return false;
-    }
-
-    if (vkBindImageMemory(device, output.image, output.memory, 0) != VK_SUCCESS)
-        return false;
-
-    VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-    viewInfo.image = output.image;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = VK_FORMAT_R32_SFLOAT;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.layerCount = 1;
-
-    return vkCreateImageView(
-        device, &viewInfo, nullptr, &output.view) == VK_SUCCESS;
-}
-
-void ImageBarrier(
-    VkCommandBuffer commandBuffer,
-    VkImage image,
-    VkImageLayout oldLayout,
-    VkImageLayout newLayout,
-    VkPipelineStageFlags sourceStage,
-    VkPipelineStageFlags destinationStage,
-    VkAccessFlags sourceAccess,
-    VkAccessFlags destinationAccess)
-{
-    VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-    barrier.oldLayout = oldLayout;
-    barrier.newLayout = newLayout;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.layerCount = 1;
-    barrier.srcAccessMask = sourceAccess;
-    barrier.dstAccessMask = destinationAccess;
-
-    vkCmdPipelineBarrier(
-        commandBuffer,
-        sourceStage,
-        destinationStage,
-        0,
-        0,
-        nullptr,
-        0,
-        nullptr,
-        1,
-        &barrier);
-}
 }
 
 int main()
 {
     VkApplicationInfo app{VK_STRUCTURE_TYPE_APPLICATION_INFO};
-    app.pApplicationName = "cloisim_rt_execution_test";
+    app.pApplicationName = "cloisim_rt_lidar_execution_test";
     app.apiVersion = VK_API_VERSION_1_2;
 
     VkInstanceCreateInfo instanceInfo{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
@@ -311,11 +197,15 @@ int main()
             device, &commandInfo, &commandBuffer) != VK_SUCCESS)
         return Fail("command buffer allocation failed");
 
-    const std::array<float, 9> vertices = {
-        -0.5F, -0.5F, 2.0F,
-         0.5F, -0.5F, 2.0F,
-         0.0F,  0.5F, 2.0F};
-    const std::array<uint32_t, 3> indices = {0, 1, 2};
+    // A large ground-plane-like quad (two triangles) at a known distance
+    // (z=2) along the sensor's forward axis, big enough that a ray fired
+    // straight along +Z definitely hits it.
+    const std::array<float, 12> vertices = {
+        -50.0F, -50.0F, 2.0F,
+         50.0F, -50.0F, 2.0F,
+         50.0F,  50.0F, 2.0F,
+        -50.0F,  50.0F, 2.0F};
+    const std::array<uint32_t, 6> indices = {0, 1, 2, 0, 2, 3};
     const auto geometryUsage =
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
@@ -348,14 +238,13 @@ int main()
     BlasTriangleInput input{};
     input.vertexAddress = vertexBuffer.DeviceAddress();
     input.indexAddress = indexBuffer.DeviceAddress();
-    input.vertexCount = 3;
+    input.vertexCount = 4;
     input.vertexStride = 3 * sizeof(float);
-    input.indexCount = 3;
+    input.indexCount = 6;
 
     AccelerationStructure blas;
     GpuBuffer blasScratch;
-    if (!builder.CreateBlas(
-            commandBuffer, input, blas, blasScratch))
+    if (!builder.CreateBlas(commandBuffer, input, blas, blasScratch))
         return Fail("BLAS record failed");
 
     VkMemoryBarrier buildBarrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
@@ -369,10 +258,13 @@ int main()
         VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
         0, 1, &buildBarrier, 0, nullptr, 0, nullptr);
 
+    // instanceCustomIndex intentionally != the test's selfExclusionId (0)
+    // below, so the lidar shader's self-hit retrace logic never engages.
     VkAccelerationStructureInstanceKHR instanceData{};
     instanceData.transform.matrix[0][0] = 1.0F;
     instanceData.transform.matrix[1][1] = 1.0F;
     instanceData.transform.matrix[2][2] = 1.0F;
+    instanceData.instanceCustomIndex = 999;
     instanceData.mask = 0xff;
     instanceData.flags =
         VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
@@ -401,69 +293,100 @@ int main()
     const std::filesystem::path shaderDirectory =
         CLOISIM_RT_TEST_SHADER_DIR;
     if (!ShaderLoader::LoadSpirv(
-            shaderDirectory / "depth.rgen.spv", raygen) ||
+            shaderDirectory / "lidar.rgen.spv", raygen) ||
         !ShaderLoader::LoadSpirv(
-            shaderDirectory / "depth.rmiss.spv", miss) ||
+            shaderDirectory / "lidar.rmiss.spv", miss) ||
         !ShaderLoader::LoadSpirv(
-            shaderDirectory / "depth.rchit.spv", hit))
+            shaderDirectory / "lidar.rchit.spv", hit))
         return Fail("SPIR-V load failed");
 
     RtPipeline pipeline;
     if (!pipeline.Create(
             physicalDevice, device, &dispatch, raygen, miss, hit,
-            DepthDescriptorBindings()))
+            LidarDescriptorBindings()))
         return Fail("RT pipeline creation failed");
 
     ShaderBindingTable sbt;
     if (!sbt.Create(physicalDevice, device, &dispatch, pipeline))
         return Fail("SBT creation failed");
 
-    ImageResource output;
-    if (!CreateOutputImage(physicalDevice, device, output))
-        return Fail("output image creation failed");
+    // Output storage buffer: kSamplesH * kSamplesV floats.
+    const VkDeviceSize outputBytes = kSamplesH * kSamplesV * sizeof(float);
+    GpuBuffer outputBuffer;
+    if (!outputBuffer.Create(
+            physicalDevice, device, &dispatch, outputBytes,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
+        return Fail("output buffer creation failed");
 
-    ImageBarrier(
-        commandBuffer, output.image,
-        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-        0, VK_ACCESS_SHADER_WRITE_BIT);
+    // Params UBO: ray0 points straight along +Z (forward) and hits the
+    // ground plane at z=2; ray1 is rotated 180 degrees horizontally (away
+    // from any geometry) and must miss.
+    LidarParamsGpu params{};
+    params.samplesH = kSamplesH;
+    params.samplesV = kSamplesV;
+    params.angleMinH = 0.0F;
+    params.angleStepH = 3.14159265F;
+    params.angleMinV = 0.0F;
+    params.angleStepV = 0.0F;
+    params.rangeMin = 0.01F;
+    params.rangeMax = 1000.0F;
+    params.rangeLinearResolution = 0.0F;
+    params.sensorPositionX = 0.0F;
+    params.sensorPositionY = 0.0F;
+    params.sensorPositionZ = 0.0F;
+    params.sensorRightX = 1.0F;
+    params.sensorRightY = 0.0F;
+    params.sensorRightZ = 0.0F;
+    params.sensorUpX = 0.0F;
+    params.sensorUpY = 1.0F;
+    params.sensorUpZ = 0.0F;
+    params.sensorForwardX = 0.0F;
+    params.sensorForwardY = 0.0F;
+    params.sensorForwardZ = 1.0F;
+    params.selfExclusionId = 0;
+    params.maxSelfHitRetraces = 8;
 
-    DepthTraceRecorder recorder;
+    GpuBuffer paramsUbo;
+    if (!paramsUbo.Create(
+            physicalDevice, device, &dispatch, sizeof(params),
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) ||
+        !paramsUbo.Upload(&params, sizeof(params)))
+        return Fail("params UBO creation failed");
+
+    LidarTraceRecorder recorder;
     if (!recorder.Initialize(device, &pipeline, &sbt) ||
         !recorder.Record(
-            commandBuffer, tlas.Handle(), output.view, kWidth, kHeight))
+            commandBuffer, tlas.Handle(),
+            outputBuffer.Handle(), outputBuffer.Size(),
+            paramsUbo.Handle(), paramsUbo.Size(),
+            kSamplesH, kSamplesV))
         return Fail("trace record failed");
 
-    ImageBarrier(
-        commandBuffer, output.image,
-        VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    VkBufferMemoryBarrier transferBarrier{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
+    transferBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    transferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    transferBarrier.buffer = outputBuffer.Handle();
+    transferBarrier.size = outputBytes;
+    vkCmdPipelineBarrier(
+        commandBuffer,
         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_ACCESS_SHADER_WRITE_BIT,
-        VK_ACCESS_TRANSFER_READ_BIT);
+        0, 0, nullptr, 1, &transferBarrier, 0, nullptr);
 
     GpuBuffer readback;
-    const VkDeviceSize readbackSize =
-        kWidth * kHeight * sizeof(float);
     if (!readback.Create(
-            physicalDevice, device, &dispatch, readbackSize,
+            physicalDevice, device, &dispatch, outputBytes,
             VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
         return Fail("readback buffer creation failed");
 
-    VkBufferImageCopy copy{};
-    copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    copy.imageSubresource.layerCount = 1;
-    copy.imageExtent = {kWidth, kHeight, 1};
-    vkCmdCopyImageToBuffer(
-        commandBuffer,
-        output.image,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        readback.Handle(),
-        1,
-        &copy);
+    VkBufferCopy copy{};
+    copy.size = outputBytes;
+    vkCmdCopyBuffer(commandBuffer, outputBuffer.Handle(), readback.Handle(), 1, &copy);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         return Fail("command buffer end failed");
@@ -480,28 +403,28 @@ int main()
         return Fail("queue submit or fence wait failed");
 
     void* mapped = nullptr;
-    if (vkMapMemory(
-            device, readback.Memory(), 0, readbackSize, 0, &mapped) !=
+    if (vkMapMemory(device, readback.Memory(), 0, outputBytes, 0, &mapped) !=
         VK_SUCCESS)
         return Fail("readback map failed");
 
-    const auto* depth = static_cast<const float*>(mapped);
-    const float center = depth[(kHeight / 2) * kWidth + (kWidth / 2)];
-    const float corner = depth[0];
-    const bool centerValid = std::isfinite(center) &&
-        center > 1.5F && center < 3.0F;
-    const bool cornerMiss = corner > 1.0e20F;
+    const auto* ranges = static_cast<const float*>(mapped);
+    const float hitDistance = ranges[0];
+    const float missDistance = ranges[1];
     vkUnmapMemory(device, readback.Memory());
 
-    std::cout << "center=" << center << " corner=" << corner << '\n';
-    const int result = centerValid && cornerMiss
+    std::cout << "hit=" << hitDistance << " miss=" << missDistance << '\n';
+
+    const bool hitValid = std::isfinite(hitDistance) &&
+        hitDistance > 1.5F && hitDistance < 2.5F;
+    const bool missIsNan = std::isnan(missDistance);
+
+    const int result = hitValid && missIsNan
         ? 0
-        : Fail("depth output did not match hit/miss expectations");
+        : Fail("lidar output did not match hit/miss expectations");
 
     vkDeviceWaitIdle(device);
     vkDestroyFence(device, fence, nullptr);
     recorder.Shutdown();
-    output.Destroy();
     sbt.Destroy();
     pipeline.Destroy();
     tlas.Destroy();
@@ -511,6 +434,8 @@ int main()
     blasScratch.Destroy();
     indexBuffer.Destroy();
     vertexBuffer.Destroy();
+    outputBuffer.Destroy();
+    paramsUbo.Destroy();
     readback.Destroy();
     vkDestroyCommandPool(device, commandPool, nullptr);
     dispatch.Reset();
@@ -518,6 +443,6 @@ int main()
     vkDestroyInstance(instance, nullptr);
 
     if (result == 0)
-        std::cout << "[OK] standalone BLAS/TLAS RT depth trace passed\n";
+        std::cout << "[OK] standalone lidar BLAS/TLAS RT trace passed\n";
     return result;
 }

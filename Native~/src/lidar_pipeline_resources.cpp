@@ -1,4 +1,4 @@
-#include "depth_pipeline_resources.h"
+#include "lidar_pipeline_resources.h"
 
 #include "rt_descriptor_bindings.h"
 #include "shader_loader.h"
@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <vector>
 
-bool DepthPipelineResources::Initialize(
+bool LidarPipelineResources::Initialize(
     VkPhysicalDevice physicalDevice,
     VkDevice device,
     VulkanDispatch* dispatch,
@@ -27,13 +27,13 @@ bool DepthPipelineResources::Initialize(
     std::vector<uint32_t> closestHit;
 
     if (!ShaderLoader::LoadSpirv(
-            shaderDirectory / "depth.rgen.spv",
+            shaderDirectory / "lidar.rgen.spv",
             raygen) ||
         !ShaderLoader::LoadSpirv(
-            shaderDirectory / "depth.rmiss.spv",
+            shaderDirectory / "lidar.rmiss.spv",
             miss) ||
         !ShaderLoader::LoadSpirv(
-            shaderDirectory / "depth.rchit.spv",
+            shaderDirectory / "lidar.rchit.spv",
             closestHit))
     {
         return false;
@@ -46,7 +46,7 @@ bool DepthPipelineResources::Initialize(
             raygen,
             miss,
             closestHit,
-            DepthDescriptorBindings()))
+            LidarDescriptorBindings()))
     {
         return false;
     }
@@ -65,7 +65,7 @@ bool DepthPipelineResources::Initialize(
     return true;
 }
 
-void DepthPipelineResources::Shutdown()
+void LidarPipelineResources::Shutdown()
 {
     ready_ = false;
     sbt_.Destroy();

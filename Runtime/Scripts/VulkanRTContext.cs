@@ -11,7 +11,8 @@ namespace CLOiSim.VulkanRT
             ProbeCapabilities = 1,
             BuildScene = 2,
             TraceSensor = 3,
-            ReleaseDeferred = 4
+            ReleaseDeferred = 4,
+            TraceLidar = 5
         }
 
         private readonly CommandBuffer commandBuffer;

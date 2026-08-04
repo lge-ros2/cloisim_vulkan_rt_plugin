@@ -38,7 +38,11 @@ add_library(cloisim_vulkan_rt SHARED
     src/depth_pipeline_resources.cpp
     src/unity_output_texture.cpp
     src/depth_trace_recorder.cpp
-    src/smoke_scene.cpp
+    src/blas_cache.cpp
+    src/native_scene.cpp
+    src/lidar_pipeline_resources.cpp
+    src/unity_output_buffer.cpp
+    src/lidar_trace_recorder.cpp
 )
 
 target_include_directories(cloisim_vulkan_rt PRIVATE
@@ -108,6 +112,21 @@ if(CLOISIM_RT_DEPLOY_RUNTIME)
             ${CMAKE_COMMAND} -E copy_if_different
             "${CLOISIM_SHADER_OUTPUT_DIR}/depth.rchit.spv"
             "${CLOISIM_RT_RUNTIME_SHADER_DIR}/depth.rchit.spv"
+
+        COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different
+            "${CLOISIM_SHADER_OUTPUT_DIR}/lidar.rgen.spv"
+            "${CLOISIM_RT_RUNTIME_SHADER_DIR}/lidar.rgen.spv"
+
+        COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different
+            "${CLOISIM_SHADER_OUTPUT_DIR}/lidar.rmiss.spv"
+            "${CLOISIM_RT_RUNTIME_SHADER_DIR}/lidar.rmiss.spv"
+
+        COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different
+            "${CLOISIM_SHADER_OUTPUT_DIR}/lidar.rchit.spv"
+            "${CLOISIM_RT_RUNTIME_SHADER_DIR}/lidar.rchit.spv"
 
         DEPENDS
             cloisim_vulkan_rt

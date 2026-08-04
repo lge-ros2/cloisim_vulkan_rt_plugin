@@ -1,24 +1,33 @@
-using System;
+#!/usr/bin/env python3
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+TARGET = ROOT / "Runtime" / "Scripts" / "VulkanRTSmokeTest.cs"
+
+CONTENT = r'''using System;
 using System.Collections;
+using System.IO;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Rendering;
+
+#if UNITY_EDITOR
+using UnityEditor.PackageManager;
+#endif
 
 namespace CLOiSim.VulkanRT
 {
     public sealed class VulkanRTSmokeTest : MonoBehaviour
     {
         private const string LibraryName = "cloisim_vulkan_rt";
+        private const string PackageId = "com.lge-ros2.cloisim.vulkan-rt";
+        private const string ShaderDirectoryEnvironment =
+            "CLOISIM_RT_SHADER_DIR";
 
         private const int Width = 16;
         private const int Height = 16;
-        private const int BuildSceneEventId = 2;
+        private const int BuildSmokeSceneEventId = 2;
         private const int TraceDepthEventId = 3;
-
-        // meshId this test uploads its single triangle under. Opaque to the
-        // native side — any caller-chosen value works as long as it matches
-        // the CloiSimRtInstanceDesc that references it.
-        private const ulong TriangleMeshId = 1;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct DepthOutput
@@ -29,40 +38,6 @@ namespace CLOiSim.VulkanRT
             public uint reserved;
         }
 
-        [StructLayout(LayoutKind.Sequential)]
-        private struct MeshDesc
-        {
-            public ulong meshId;
-            public IntPtr vertices;
-            public uint vertexCount;
-            public IntPtr indices;
-            public uint indexCount;
-        }
-
-        // Mirrors CloiSimRtInstanceDesc's memory layout (api.h) as individual
-        // blittable fields — avoids array-marshaling attributes entirely so
-        // this struct stays trivially blittable for direct native calls.
-        [StructLayout(LayoutKind.Sequential)]
-        private struct InstanceDesc
-        {
-            public ulong meshId;
-            public float t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11;
-            public uint instanceId;
-            public uint mask;
-        }
-
-        [DllImport(
-            LibraryName,
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern int CLOISimRt_UploadMesh(ref MeshDesc desc);
-
-        [DllImport(
-            LibraryName,
-            CallingConvention = CallingConvention.Cdecl)]
-        private static extern int CLOISimRt_SetSceneInstances(
-            ref InstanceDesc instances,
-            uint count);
-
         [DllImport(
             LibraryName,
             CallingConvention = CallingConvention.Cdecl)]
@@ -72,64 +47,12 @@ namespace CLOiSim.VulkanRT
         [DllImport(
             LibraryName,
             CallingConvention = CallingConvention.Cdecl)]
-        private static extern int CLOISimRt_IsSceneReady();
+        private static extern int CLOISimRt_IsSmokeSceneReady();
 
         [DllImport(
             LibraryName,
             CallingConvention = CallingConvention.Cdecl)]
         private static extern int CLOISimRt_GetLastTraceStatus();
-
-        // Same single triangle the native SmokeScene used to hard-code
-        // internally — now uploaded by the caller through the generic
-        // mesh/instance API, proving that path end-to-end.
-        private static bool UploadTriangleAndSetInstance()
-        {
-            float[] vertices =
-            {
-                -0.5f, -0.5f, 2.0f,
-                 0.5f, -0.5f, 2.0f,
-                 0.0f,  0.5f, 2.0f,
-            };
-            int[] indices = { 0, 1, 2 };
-
-            var verticesPtr = Marshal.AllocHGlobal(vertices.Length * sizeof(float));
-            var indicesPtr = Marshal.AllocHGlobal(indices.Length * sizeof(int));
-            try
-            {
-                Marshal.Copy(vertices, 0, verticesPtr, vertices.Length);
-                Marshal.Copy(indices, 0, indicesPtr, indices.Length);
-
-                var meshDesc = new MeshDesc
-                {
-                    meshId = TriangleMeshId,
-                    vertices = verticesPtr,
-                    vertexCount = 3,
-                    indices = indicesPtr,
-                    indexCount = 3,
-                };
-
-                if (CLOISimRt_UploadMesh(ref meshDesc) != 0)
-                    return false;
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(verticesPtr);
-                Marshal.FreeHGlobal(indicesPtr);
-            }
-
-            // Identity 3x4 row-major transform.
-            var instance = new InstanceDesc
-            {
-                meshId = TriangleMeshId,
-                t0 = 1f, t1 = 0f, t2 = 0f, t3 = 0f,
-                t4 = 0f, t5 = 1f, t6 = 0f, t7 = 0f,
-                t8 = 0f, t9 = 0f, t10 = 1f, t11 = 0f,
-                instanceId = 0,
-                mask = 0xFF,
-            };
-
-            return CLOISimRt_SetSceneInstances(ref instance, 1) == 0;
-        }
 
         public IEnumerator Run(Action<bool, string> completed)
         {
@@ -145,7 +68,7 @@ namespace CLOiSim.VulkanRT
                 yield break;
             }
 
-            if (!VulkanRTPlugin.TryResolveShaderDirectory(out var shaderDirectory))
+            if (!TryResolveShaderDirectory(out var shaderDirectory))
             {
                 completed(
                     false,
@@ -227,15 +150,9 @@ namespace CLOiSim.VulkanRT
                     yield break;
                 }
 
-                if (!UploadTriangleAndSetInstance())
-                {
-                    completed(false, "Mesh upload / instance setup failed");
-                    yield break;
-                }
-
                 GL.IssuePluginEvent(
                     renderEventFunc,
-                    BuildSceneEventId);
+                    BuildSmokeSceneEventId);
 
                 yield return new WaitForEndOfFrame();
 
@@ -245,9 +162,9 @@ namespace CLOiSim.VulkanRT
 
                 yield return new WaitForEndOfFrame();
 
-                if (CLOISimRt_IsSceneReady() != 1)
+                if (CLOISimRt_IsSmokeSceneReady() != 1)
                 {
-                    completed(false, "Native scene is not ready");
+                    completed(false, "Native smoke scene is not ready");
                     yield break;
                 }
 
@@ -307,6 +224,22 @@ namespace CLOiSim.VulkanRT
                     centerIsValid && cornerIsMiss,
                     $"center={center}, corner={corner}");
             }
+            catch (DllNotFoundException exception)
+            {
+                completed(
+                    false,
+                    $"Native plugin was not found: {exception.Message}");
+            }
+            catch (EntryPointNotFoundException exception)
+            {
+                completed(
+                    false,
+                    $"Native entry point was not found: {exception.Message}");
+            }
+            catch (Exception exception)
+            {
+                completed(false, exception.ToString());
+            }
             finally
             {
                 output.Release();
@@ -314,5 +247,92 @@ namespace CLOiSim.VulkanRT
             }
         }
 
+        private static bool TryResolveShaderDirectory(
+            out string directory)
+        {
+            directory = Environment.GetEnvironmentVariable(
+                ShaderDirectoryEnvironment) ?? string.Empty;
+
+            if (IsShaderDirectoryValid(directory))
+            {
+                SetShaderDirectoryEnvironment(directory);
+                return true;
+            }
+
+#if UNITY_EDITOR
+            var packageInfo = PackageInfo.FindForAssembly(
+                typeof(VulkanRTPlugin).Assembly);
+
+            if (packageInfo != null &&
+                !string.IsNullOrWhiteSpace(packageInfo.resolvedPath))
+            {
+                directory = Path.Combine(
+                    packageInfo.resolvedPath,
+                    "Runtime",
+                    "Shaders");
+
+                if (IsShaderDirectoryValid(directory))
+                {
+                    SetShaderDirectoryEnvironment(directory);
+                    return true;
+                }
+            }
+#endif
+
+            directory = Path.GetFullPath(
+                Path.Combine(
+                    Application.dataPath,
+                    "..",
+                    "Packages",
+                    PackageId,
+                    "Runtime",
+                    "Shaders"));
+
+            if (IsShaderDirectoryValid(directory))
+            {
+                SetShaderDirectoryEnvironment(directory);
+                return true;
+            }
+
+            directory = string.Empty;
+            return false;
+        }
+
+        private static bool IsShaderDirectoryValid(string directory)
+        {
+            if (string.IsNullOrWhiteSpace(directory) ||
+                !Directory.Exists(directory))
+            {
+                return false;
+            }
+
+            return
+                File.Exists(Path.Combine(
+                    directory,
+                    "depth.rgen.spv")) &&
+                File.Exists(Path.Combine(
+                    directory,
+                    "depth.rmiss.spv")) &&
+                File.Exists(Path.Combine(
+                    directory,
+                    "depth.rchit.spv"));
+        }
+
+        private static void SetShaderDirectoryEnvironment(
+            string directory)
+        {
+            directory = Path.GetFullPath(directory);
+
+            Environment.SetEnvironmentVariable(
+                ShaderDirectoryEnvironment,
+                directory);
+        }
     }
 }
+'''
+
+if not TARGET.parent.exists():
+    raise SystemExit(f"[FAIL] directory not found: {TARGET.parent}")
+
+TARGET.write_text(CONTENT, encoding="utf-8")
+print(f"[OK] replaced {TARGET.relative_to(ROOT)}")

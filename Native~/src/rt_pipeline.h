@@ -6,7 +6,7 @@
 class RtPipeline {
 public:
  ~RtPipeline();
- bool Create(VkPhysicalDevice physicalDevice,VkDevice device,VulkanDispatch* dispatch,const std::vector<uint32_t>& raygen,const std::vector<uint32_t>& miss,const std::vector<uint32_t>& closestHit);
+ bool Create(VkPhysicalDevice physicalDevice,VkDevice device,VulkanDispatch* dispatch,const std::vector<uint32_t>& raygen,const std::vector<uint32_t>& miss,const std::vector<uint32_t>& closestHit,const std::vector<VkDescriptorSetLayoutBinding>& descriptorBindings);
  void Destroy();
  VkPipeline Handle() const{return pipeline_;} VkPipelineLayout Layout() const{return layout_;} VkDescriptorSetLayout DescriptorSetLayout() const{return descriptorSetLayout_;}
  uint32_t GroupCount() const{return 3;} const VkPhysicalDeviceRayTracingPipelinePropertiesKHR& Properties() const{return properties_;}

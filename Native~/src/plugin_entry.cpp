@@ -15,13 +15,16 @@ static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(
     UnityVulkanBridge::Instance().OnGraphicsDeviceEvent(eventType);
 }
 
-static void UNITY_INTERFACE_API OnRenderEvent(int eventId, void*)
+static void UNITY_INTERFACE_API OnRenderEvent(int eventId, void* data)
 {
+    if (!UnityVulkanBridge::Instance().EnsureReady())
+        return;
+
     auto* vulkan = UnityVulkanBridge::Instance().Vulkan();
     if (vulkan == nullptr)
         return;
 
-    if (eventId < 1 || eventId > 4)
+    if (eventId < 1 || eventId > 5)
         return;
 
     vulkan->EnsureOutsideRenderPass();
@@ -42,7 +45,7 @@ static void UNITY_INTERFACE_API OnRenderEvent(int eventId, void*)
     switch (eventId)
     {
     case 2:
-        context.RecordSmokeBuild(state.commandBuffer);
+        context.RecordSceneBuild(state.commandBuffer);
         break;
 
     case 3:
@@ -53,6 +56,14 @@ static void UNITY_INTERFACE_API OnRenderEvent(int eventId, void*)
 
     case 4:
         context.CollectDeferred();
+        break;
+
+    case 5:
+        // RecordLidarTrace() 내부 AccessBuffer()가 state를 무효화하므로
+        // 함수 안에서 CommandRecordingState()를 다시 획득한다.
+        context.RecordLidarTrace(
+            vulkan,
+            static_cast<const CloiSimRtLidarTraceRequest*>(data));
         break;
 
     default:
@@ -70,7 +81,6 @@ UnityPluginLoad(IUnityInterfaces* interfaces)
     if (g_graphics != nullptr)
     {
         g_graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent);
-        OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize);
     }
 }
 
@@ -86,7 +96,7 @@ UnityPluginUnload()
 
 uint32_t CLOISimRt_GetAbiVersion()
 {
-    return 2;
+    return 3;
 }
 
 int32_t CLOISimRt_GetCapabilities(CloiSimRtCapabilities* capabilities)
@@ -96,6 +106,7 @@ int32_t CLOISimRt_GetCapabilities(CloiSimRtCapabilities* capabilities)
 
 int32_t CLOISimRt_IsNativeBackendAvailable()
 {
+    UnityVulkanBridge::Instance().EnsureReady();
     return VulkanInterceptor::NativeBackendAvailable() ? 1 : 0;
 }
 
@@ -113,6 +124,9 @@ int32_t CLOISimRt_SetShaderDirectory(const char* path)
 
 int32_t CLOISimRt_InitializeDepthPipeline()
 {
+    if (!UnityVulkanBridge::Instance().EnsureReady())
+        return -1;
+
     return RtRuntimeContext::Instance().InitializeDepthPipeline()
         ? 0
         : -1;
@@ -139,9 +153,40 @@ int32_t CLOISimRt_SetDepthOutput(
         : -1;
 }
 
-int32_t CLOISimRt_IsSmokeSceneReady()
+int32_t CLOISimRt_UploadMesh(const CloiSimRtMeshDesc* desc)
 {
-    return RtRuntimeContext::Instance().IsSmokeSceneReady()
+    if (desc == nullptr)
+        return -1;
+
+    return RtRuntimeContext::Instance().UploadMesh(
+        desc->meshId,
+        desc->vertices,
+        desc->vertexCount,
+        desc->indices,
+        desc->indexCount)
+        ? 0
+        : -1;
+}
+
+int32_t CLOISimRt_ReleaseMesh(uint64_t meshId)
+{
+    return RtRuntimeContext::Instance().ReleaseMesh(meshId)
+        ? 0
+        : -1;
+}
+
+int32_t CLOISimRt_SetSceneInstances(
+    const CloiSimRtInstanceDesc* instances,
+    uint32_t count)
+{
+    return RtRuntimeContext::Instance().SetSceneInstances(instances, count)
+        ? 0
+        : -1;
+}
+
+int32_t CLOISimRt_IsSceneReady()
+{
+    return RtRuntimeContext::Instance().IsSceneReady()
         ? 1
         : 0;
 }
@@ -149,4 +194,26 @@ int32_t CLOISimRt_IsSmokeSceneReady()
 int32_t CLOISimRt_GetLastTraceStatus()
 {
     return RtRuntimeContext::Instance().LastTraceStatus();
+}
+
+int32_t CLOISimRt_InitializeLidarPipeline()
+{
+    if (!UnityVulkanBridge::Instance().EnsureReady())
+        return -1;
+
+    return RtRuntimeContext::Instance().InitializeLidarPipeline()
+        ? 0
+        : -1;
+}
+
+int32_t CLOISimRt_IsLidarPipelineReady()
+{
+    return RtRuntimeContext::Instance().IsLidarPipelineReady()
+        ? 1
+        : 0;
+}
+
+int32_t CLOISimRt_GetLastLidarTraceStatus()
+{
+    return RtRuntimeContext::Instance().LastLidarTraceStatus();
 }

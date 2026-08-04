@@ -1,0 +1,118 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+
+layout(set = 0, binding = 0)
+uniform accelerationStructureEXT scene;
+
+layout(set = 0, binding = 1, std430)
+buffer RangeOutput { float ranges[]; } rangeOutput;
+
+// Mirrors Assets/Resources/Shader/LidarRayTrace.compute's parameter set
+// exactly (see the plan doc / that shader for the authoritative math this
+// reproduces). All fields are vec4/uvec4-aligned to avoid std140's
+// ambiguous vec3 packing.
+layout(set = 0, binding = 2, std140)
+uniform LidarParams
+{
+    uvec4 samples;        // x=samplesH, y=samplesV
+    vec4  angle;          // x=angleMinH, y=angleStepH, z=angleMinV, w=angleStepV
+    vec4  range;          // x=rangeMin, y=rangeMax, z=rangeLinearResolution
+    vec4  sensorPosition;
+    vec4  sensorRight;
+    vec4  sensorUp;
+    vec4  sensorForward;
+    uvec4 selfExclusion;  // x=selfExclusionId, y=maxSelfHitRetraces
+} lidarParams;
+
+struct HitPayload
+{
+    float hitDistance; // < 0 => miss
+    int instanceId;
+};
+layout(location = 0) rayPayloadEXT HitPayload payload;
+
+void main()
+{
+    const uvec2 pixel = gl_LaunchIDEXT.xy;
+    const uint samplesH = lidarParams.samples.x;
+    const uint samplesV = lidarParams.samples.y;
+    if (pixel.x >= samplesH || pixel.y >= samplesV)
+        return;
+
+    const float angleH = lidarParams.angle.x + lidarParams.angle.y * float(pixel.x);
+    const float angleV = lidarParams.angle.z + lidarParams.angle.w * float(pixel.y);
+
+    const float cosV = cos(angleV);
+    const float sinV = sin(angleV);
+    const float cosH = cos(angleH);
+    const float sinH = sin(angleH);
+
+    // local: forward * cosV*cosH, -right * cosV*sinH, up * sinV
+    const vec3 dirLocal = vec3(cosV * cosH, cosV * sinH, sinV);
+
+    const vec3 forward = lidarParams.sensorForward.xyz;
+    const vec3 right = lidarParams.sensorRight.xyz;
+    const vec3 up = lidarParams.sensorUp.xyz;
+    const vec3 dirWorld = normalize(
+        dirLocal.x * forward +
+        dirLocal.y * (-right) +
+        dirLocal.z * up);
+
+    const vec3 origin = lidarParams.sensorPosition.xyz;
+    const float rangeMin = lidarParams.range.x;
+    const float rangeMax = lidarParams.range.y;
+    const float linearResolution = lidarParams.range.z;
+    const int selfExclusionId = int(lidarParams.selfExclusion.x);
+    const uint maxSelfHitRetraces = lidarParams.selfExclusion.y;
+
+    float traceTMin = rangeMin;
+    payload.hitDistance = -1.0;
+    payload.instanceId = -1;
+    traceRayEXT(
+        scene, gl_RayFlagsOpaqueEXT, 0xFF,
+        0, 0, 0,
+        origin, traceTMin, dirWorld, rangeMax, 0);
+
+    // Skip past hits against the lidar's own mounting link (self-hit),
+    // exactly mirroring LidarRayTrace.compute's retrace loop: advance tMin
+    // just past each self-hit and retrace, bounded so a ray grazing along
+    // the mount's own surface cannot spin indefinitely.
+    uint retrace = 0;
+    while (retrace < maxSelfHitRetraces &&
+           payload.instanceId == selfExclusionId &&
+           payload.hitDistance >= 0.0)
+    {
+        traceTMin = payload.hitDistance + 1e-4;
+        payload.hitDistance = -1.0;
+        payload.instanceId = -1;
+        traceRayEXT(
+            scene, gl_RayFlagsOpaqueEXT, 0xFF,
+            0, 0, 0,
+            origin, traceTMin, dirWorld, rangeMax, 0);
+        retrace++;
+    }
+
+    // Retry budget exhausted while still hitting self: treat as a miss
+    // rather than silently accepting a self-hit distance.
+    if (payload.instanceId == selfExclusionId)
+    {
+        payload.instanceId = -1;
+        payload.hitDistance = -1.0;
+    }
+
+    float dist = uintBitsToFloat(0x7FC00000u); // NaN = no hit / out of range
+    if (payload.hitDistance >= 0.0)
+    {
+        dist = payload.hitDistance;
+
+        if (linearResolution > 0.0)
+            dist = round(dist / linearResolution) * linearResolution;
+
+        if (dist < rangeMin || dist > rangeMax)
+            dist = uintBitsToFloat(0x7FC00000u);
+    }
+
+    // Row-major order: [vIndex * samplesH + hIndex] — matches
+    // LidarRayTrace.compute's output layout exactly.
+    rangeOutput.ranges[pixel.y * samplesH + pixel.x] = dist;
+}

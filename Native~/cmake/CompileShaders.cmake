@@ -4,6 +4,9 @@ set(CLOISIM_SHADER_SOURCES
     depth.rgen
     depth.rmiss
     depth.rchit
+    lidar.rgen
+    lidar.rmiss
+    lidar.rchit
 )
 
 set(CLOISIM_SHADER_OUTPUT_DIR

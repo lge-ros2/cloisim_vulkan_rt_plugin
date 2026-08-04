@@ -48,48 +48,75 @@ void UnityVulkanBridge::OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType)
         VulkanDispatch::Instance().Reset();
         instance_ = {};
         initialized_ = false;
+        deviceEventSeen_ = false;
         return;
     }
 
     if (eventType != kUnityGfxDeviceEventInitialize || vulkan_ == nullptr)
         return;
 
+    // Do not query vulkan_->Instance() here: with a vkCreateDevice
+    // interceptor installed, this event fires synchronously from within
+    // Unity's own device bring-up call stack, before its UnityVulkanInstance
+    // bookkeeping is fully populated. The actual query is deferred to
+    // EnsureReady(), invoked lazily from managed-code entry points.
+    deviceEventSeen_ = true;
+
+    std::fprintf(
+        stderr,
+        "[CLOiSimRt] OnGraphicsDeviceEvent: device create event seen, "
+        "deferring Instance() query\n");
+}
+
+bool UnityVulkanBridge::EnsureReady()
+{
+    if (initialized_)
+        return true;
+
+    if (!deviceEventSeen_ || vulkan_ == nullptr)
+        return false;
+
     instance_ = vulkan_->Instance();
     initialized_ = instance_.device != VK_NULL_HANDLE;
 
     std::fprintf(
         stderr,
-        "[CLOiSimRt] OnGraphicsDeviceEvent: initialized_=%d "
+        "[CLOiSimRt] EnsureReady: initialized_=%d "
         "device=%p nativeBackendAvailable=%d\n",
         initialized_,
         reinterpret_cast<void*>(instance_.device),
         VulkanInterceptor::NativeBackendAvailable());
 
-    if (initialized_)
+    if (!initialized_)
+        return false;
+
+    const bool dispatchLoaded = VulkanDispatch::Instance().Load(
+        instance_.instance,
+        instance_.device,
+        instance_.getInstanceProcAddr);
+
+    std::fprintf(
+        stderr,
+        "[CLOiSimRt] EnsureReady: dispatchLoaded=%d\n",
+        dispatchLoaded);
+
+    if (dispatchLoaded)
     {
-        const bool dispatchLoaded = VulkanDispatch::Instance().Load(
-            instance_.instance,
+        RtRuntimeContext::Instance().Initialize(
+            instance_.physicalDevice,
             instance_.device,
-            instance_.getInstanceProcAddr);
-
-        std::fprintf(
-            stderr,
-            "[CLOiSimRt] OnGraphicsDeviceEvent: dispatchLoaded=%d\n",
-            dispatchLoaded);
-
-        if (dispatchLoaded)
-        {
-            RtRuntimeContext::Instance().Initialize(
-                instance_.physicalDevice,
-                instance_.device,
-                &VulkanDispatch::Instance());
-        }
+            &VulkanDispatch::Instance());
     }
+
+    return dispatchLoaded;
 }
 
-bool UnityVulkanBridge::GetCapabilities(CloiSimRtCapabilities* capabilities) const
+bool UnityVulkanBridge::GetCapabilities(CloiSimRtCapabilities* capabilities)
 {
-    if (!initialized_ || capabilities == nullptr)
+    if (capabilities == nullptr)
+        return false;
+
+    if (!EnsureReady())
         return false;
 
     std::memset(capabilities, 0, sizeof(*capabilities));

@@ -1,13 +1,17 @@
 #pragma once
 
-#include "smoke_scene.h"
+#include "native_scene.h"
+#include "unity_output_buffer.h"
 #include "unity_output_texture.h"
 #include "depth_trace_recorder.h"
+#include "lidar_trace_recorder.h"
 #include "IUnityGraphics.h"
 #include "IUnityGraphicsVulkan.h"
 
 #include "depth_pipeline_resources.h"
+#include "lidar_pipeline_resources.h"
 #include "deferred_release_queue.h"
+#include "gpu_buffer.h"
 #include "vulkan_dispatch.h"
 
 #include <vulkan/vulkan.h>
@@ -38,18 +42,37 @@ public:
         uint32_t width,
         uint32_t height);
 
-    bool RecordSmokeBuild(
+    // Real-scene geometry upload/instancing — see NativeScene.
+    bool UploadMesh(
+        uint64_t meshId,
+        const float* vertices,
+        uint32_t vertexCount,
+        const uint32_t* indices,
+        uint32_t indexCount);
+    bool ReleaseMesh(uint64_t meshId);
+    bool SetSceneInstances(
+        const CloiSimRtInstanceDesc* instances,
+        uint32_t count);
+
+    bool RecordSceneBuild(
         VkCommandBuffer commandBuffer);
 
     bool RecordDepthTrace(
         IUnityGraphicsVulkanV2* vulkan);
 
-    bool IsSmokeSceneReady() const;
+    bool IsSceneReady() const;
     int LastTraceStatus() const;
 
     bool SetShaderDirectory(const char* path);
     bool InitializeDepthPipeline();
     bool IsDepthPipelineReady() const;
+
+    bool InitializeLidarPipeline();
+    bool IsLidarPipelineReady() const;
+    bool RecordLidarTrace(
+        IUnityGraphicsVulkanV2* vulkan,
+        const CloiSimRtLidarTraceRequest* request);
+    int LastLidarTraceStatus() const;
 
     bool IsInitialized() const { return initialized_; }
     uint64_t CurrentFrameNumber() const { return currentFrameNumber_; }
@@ -64,7 +87,7 @@ private:
     VkPhysicalDevice physicalDevice_ = VK_NULL_HANDLE;
     VkDevice device_ = VK_NULL_HANDLE;
     VulkanDispatch* dispatch_ = nullptr;
-    SmokeScene smokeScene_;
+    NativeScene nativeScene_;
     UnityOutputTexture outputTexture_;
     DepthTraceRecorder traceRecorder_;
 
@@ -73,6 +96,13 @@ private:
     uint32_t outputHeight_ = 0;
     int lastTraceStatus_ = 0;
     DepthPipelineResources depthPipeline_;
+
+    LidarPipelineResources lidarPipeline_;
+    UnityOutputBuffer lidarOutputBuffer_;
+    LidarTraceRecorder lidarTraceRecorder_;
+    GpuBuffer lidarParamsUbo_;
+    int lastLidarTraceStatus_ = 0;
+
     std::filesystem::path shaderDirectory_;
     DeferredReleaseQueue deferredReleases_;
     uint64_t currentFrameNumber_ = 0;
